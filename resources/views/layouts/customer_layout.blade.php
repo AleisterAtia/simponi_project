@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wayouji Premium Beverages</title>
+    <title>Mr.Wayojiai Buah Premium Padang</title>
     <meta name="csrf-token" content="{{ csrf_token() }}"> {{-- PENTING untuk AJAX --}}
 
     {{-- Tailwind --}}
@@ -49,10 +49,10 @@
 
             <div class="flex items-center space-x-2">
                 <a href="{{ route('landingpage') }}" class="flex items-center space-x-2">
-                    <img src="{{ asset('images/logop.png') }}" alt="Wayouji Logo"
+                    <img src="{{ asset('images/LogoToko.jpeg') }}" alt="Wayouji Logo"
                         class="h-10 w-10 border rounded-lg bg-white">
                     <div class="leading-none">
-                        <h1 class="text-lg font-bold text-gray-800">Wayouji Premium Beverages</h1>
+                        <h1 class="text-lg font-bold text-gray-800">Mr.Wayojiai Buah Premium Padang</h1>
                         <p class="text-xs text-gray-500">Elevate Your Taste, Embrace the Premium</p>
                     </div>
                 </a>
@@ -190,8 +190,8 @@
 
                 <div>
                     <div class="flex items-center space-x-3 mb-4">
-                        <img src="{{ asset('images/logop.png') }}" alt="Wayouji Logo" class="h-16">
-                        <span class="font-bold text-xl">Wayouji Premium Beverages</span>
+                        <img src="{{ asset('images/LogoToko.jpeg') }}" alt="Wayouji Logo" class="h-16">
+                        <span class="font-bold text-xl">Mr.Wayojiai Buah Premium Padang</span>
                     </div>
                     <p class="text-sm text-orange-100 leading-relaxed">
                         Nikmati pengalaman premium dengan koleksi minuman berkualitas tinggi, dibuat dengan bahan-bahan
@@ -227,7 +227,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round"
                                     d="M16.5 12a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zm0 0c0 1.657 1.007 3 2.25 3S21 13.657 21 12a9 9 0 10-2.636 6.364M16.5 12V8.25" />
                             </svg>
-                            <a href="#" class="hover:text-white transition">@wayouji_official</a>
+                            <a href="#" class="hover:text-white transition">@mr.wayojiai</a>
                         </li>
                     </ul>
                 </div>
@@ -259,7 +259,7 @@
             {{-- Garis Pemisah & Copyright --}}
             <div class="mt-10 pt-6 border-t border-orange-500">
                 <p class="text-center text-sm text-orange-200">
-                    © {{ date('Y') }} Wayouji Premium Beverages. All rights reserved.
+                    © {{ date('Y') }} Mr.Wayojiai Buah Premium Padang. All rights reserved.
                 </p>
             </div>
         </div>

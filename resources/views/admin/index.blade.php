@@ -42,7 +42,7 @@
                     {{-- Logo Wayouji --}}
                     <img src="{{ asset('images/logop.png') }}" alt="Wayouji Logo" class="h-10 w-10">
                     {{-- Pastikan path logo benar --}}
-                    <h1 class="text-2xl font-bold text-gray-800">Wayouji Kasir - Point of Sale</h1>
+                    <h1 class="text-2xl font-bold text-gray-800">Mr.Wayojiai Admin - Point of Sale</h1>
                 </div>
                 <div class="text-right">
                     <p class="text-gray-600 text-sm">{{ \Carbon\Carbon::now()->translatedFormat('l, d F Y') }}</p>

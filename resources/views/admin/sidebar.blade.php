@@ -6,7 +6,7 @@
         {{-- Ikon Logo --}}
         <img src="{{ asset('images/logop.png') }}" alt="Wayouji Logo" class="h-10 w-10 border rounded-lg bg-white">
         <div class="leading-tight">
-            <h1 class="text-xl font-bold text-white">Wayouji</h1>
+            <h1 class="text-xl font-bold text-white">Mr.Wayojiai</h1>
             {{-- Mengganti subtitle agar sesuai gambar --}}
             <p class="text-xs text-orange-100">Point of Sale</p>
         </div>

@@ -3,7 +3,7 @@
     <div class="flex items-center gap-3 p-3 mb-4">
         <span class="text-4xl">☕</span>
         <div>
-            <h1 class="font-bold text-lg">Wayouji Kasir</h1>
+            <h1 class="font-bold text-lg">Mr.Wayoujiai Kasir</h1>
             <p class="text-xs text-orange-100">Point of Sale</p>
         </div>
     </div>
