@@ -123,21 +123,18 @@ class KasirOrderController extends Controller
      * Ini adalah FUNGSI KUNCI yang akan mentrigger update di halaman pelanggan.
      */
     public function updateStatus(Request $request, Order $order)
-    {
-        // Validasi status baru
-        $validated = $request->validate([
-            'status' => 'required|in:process,done,cancel',
-        ]);
+{
+    $request->validate([
+        'status' => 'required|in:new,process,done,cancel,complete'
+    ]);
 
-        // 1. Update status pesanan di database
-        $order->update([
-            'status' => $validated['status']
-        ]);
+    $order->update([
+        'status' => $request->status
+    ]);
 
-        // 2. SIARKAN (BROADCAST) EVENT UPDATE STATUS
-        // Pelanggan yang sedang di halaman tracking akan menerima update ini.
-        broadcast(new OrderStatusUpdated($order))->toOthers();
+    broadcast(new OrderStatusUpdated($order));
 
-        return back()->with('success', 'Status pesanan #' . $order->order_code . ' berhasil diupdate.');
-    }
+    return redirect()->back()->with('success', 'Status pesanan berhasil diperbarui.');
+}
+
 }

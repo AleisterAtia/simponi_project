@@ -64,4 +64,11 @@ class AdminController extends Controller
         'outOfStockProducts' => $outOfStockProducts, // Ini akan memperbaiki error Anda
     ]);
 }
+
+public function settings()
+    {
+        return view('admin.settings', [
+            'user' => auth()->user(),
+        ]);
+    }
 }

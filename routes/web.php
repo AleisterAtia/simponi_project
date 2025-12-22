@@ -9,10 +9,17 @@ use App\Http\Controllers\MenuController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\RewardController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ToppingController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\KasirOrderController;
 use App\Http\Controllers\LandingPageController;
+
+
 /*
 |--------------------------------------------------------------------------
 | Landing Page
@@ -25,32 +32,58 @@ Route::get('/', [LandingPageController::class, 'index'])->name('landingpage');
 | Admin Dashboard & Menu CRUD
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth', IsAdmin::class])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', IsAdmin::class])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
 
-    // Dashboard
-// MENJADI INI:
-Route::get('/', [AdminController::class, 'index'])->name('dashboard');
+        // Dashboard
+        Route::get('/', [AdminController::class, 'index'])->name('dashboard');
 
-    // CRUD Menu
-    Route::resource('menu', MenuController::class);
-    Route::post('menu/{menu}/toggle-status', [MenuController::class, 'toggleStatus'])->name('menu.toggleStatus');
+        // Pengaturan Admin
+        Route::get('/pengaturan', [AdminController::class, 'settings'])->name('settings');
+
+        // CRUD Menu
+        Route::resource('menu', MenuController::class);
+        Route::post('menu/{menu}/toggle-status', [MenuController::class, 'toggleStatus'])->name('menu.toggleStatus');
+
+        // CRUD Reward
+        Route::resource('rewards', RewardController::class);
+
+        // CRUD Diskon
+        Route::resource('discounts', DiscountController::class);
+
+        // CRUD Member
+        Route::resource('customers', CustomerController::class);
+
+        // --- CRUD Kategori (BARU) ---
+        // Menggunakan except(['show', 'edit']) karena menggunakan modal
+        Route::resource('categories', CategoryController::class)->except(['show', 'edit']);
+
+        // --- CRUD Topping (BARU) ---
+        // Menggunakan except(['show', 'edit']) karena menggunakan modal
+        Route::resource('toppings', ToppingController::class)->except(['show', 'edit']);
 
 
-    // Contoh route tambahan admin lain bisa ditambahkan di sini
-    // Route::get('/settings', function() { ... })->name('settings');
-});
-
-// 1. Halaman untuk "Input Pesanan"
-    Route::get('/kasir/input-pesanan', [KasirOrderController::class, 'createManual'])
-         ->name('kasir.orders.createManual');
-
-    // 3. Aksi untuk menyimpan pesanan manual
-    Route::post('/kasir/input-pesanan', [KasirOrderController::class, 'storeManual'])
-         ->name('kasir.orders.storeManual');
+    });
 
 /*
 |--------------------------------------------------------------------------
-| Kasir Dashboard
+| Kasir Routes
+|--------------------------------------------------------------------------
+*/
+
+// 1. Halaman Input Pesanan
+Route::get('/kasir/input-pesanan', [KasirOrderController::class, 'createManual'])
+    ->name('kasir.orders.createManual');
+
+// 2. Aksi Simpan Pesanan Manual
+Route::post('/kasir/input-pesanan', [KasirOrderController::class, 'storeManual'])
+    ->name('kasir.orders.storeManual');
+
+/*
+|--------------------------------------------------------------------------
+| Kasir Dashboard (TERMASUK CRUD MEMBER)
 |--------------------------------------------------------------------------
 */
 
@@ -58,7 +91,10 @@ Route::get('/kasir/riwayat-transaksi', [OrderController::class, 'transactionHist
     ->name('kasir.riwayat');
 
 
-Route::middleware(['auth', IsKasir::class])->group(function () {
+// PERBAIKAN FINAL: Middleware 'web' sudah ditambahkan untuk CSRF dan Session
+Route::middleware(['web', 'auth', IsKasir::class])->group(function () {
+
+    // Rute Dashboard
     Route::get('/kasir', function () {
 
         // Ambil data untuk hari ini
@@ -71,8 +107,8 @@ Route::middleware(['auth', IsKasir::class])->group(function () {
 
         // 2. Hitung Pesanan Baru (status 'new')
         $newOrderCount = Order::where('status', 'new')
-                              ->whereDate('created_at', $today)
-                              ->count();
+                             ->whereDate('created_at', $today)
+                             ->count();
 
         // 3. Hitung Sedang Diproses (status 'process')
         $processingOrderCount = Order::where('status', 'process')
@@ -94,12 +130,27 @@ Route::middleware(['auth', IsKasir::class])->group(function () {
 
     })->name('kasir.dashboard');
 
-    Route::get('/kasir/pesanan-online', [KasirOrderController::class, 'index'])
-         ->name('kasir.orders.online');
+    Route::get('/kasir/pesanan-online', [OrderController::class, 'onlineDashboard'])
+        ->name('kasir.orders.online');
+
+    // 2. Route KHUSUS Auto Refresh (Ini yang dipanggil AJAX setiap 5 detik)
+    Route::get('/kasir/pesanan-online/refresh', [OrderController::class, 'refreshOnlineOrders'])
+        ->name('kasir.orders.refresh');
+
+    // Route::get('/kasir/pesanan-online', [KasirOrderController::class, 'index'])
+    //          ->name('kasir.orders.online');
 
     // 2. Aksi untuk mengubah status pesanan
     Route::post('/kasir/pesanan/{order}/update-status', [KasirOrderController::class, 'updateStatus'])
-         ->name('kasir.orders.updateStatus');
+             ->name('kasir.orders.updateStatus');
+
+    // CRUD MEMBER UNTUK KASIR
+    Route::resource('kasir/customers', CustomerController::class)
+        ->only(['index', 'store', 'show', 'update', 'destroy'])
+        ->names('kasir.customers');
+
+    Route::get('/kasir/riwayat/struk/{orderId}', [PaymentController::class, 'showReceipt'])
+        ->name('kasir.riwayat.print');
 });
 
 /*
@@ -111,6 +162,16 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // ⬇️ RUTE BARU: REDEEM REWARD MEMBER ⬇️
+    Route::post('/redeem-reward/{reward}', [RewardController::class, 'redeemReward'])
+        ->name('rewards.redeem');
+
+
+    Route::get('/notifications/read-all', function () {
+        auth()->user()->unreadNotifications->markAsRead();
+        return back();
+    })->name('notifications.readAll');
 });
 
 //Keranjang
@@ -147,17 +208,17 @@ Route::get('/admin/reports', [ReportController::class, 'index'])->name('admin.re
 
 // Inputan Manual Kasir
 // 1. Rute POST untuk MENAMPILKAN halaman pembayaran
-//    Rute ini menerima data keranjang dari form 'input.blade.php'
+//    Rute ini menerima data keranjang dari form 'input.blade.php'
 Route::match(['GET', 'POST'], '/kasir/pembayaran', [OrderController::class, 'showPaymentPage'])
     ->name('kasir.pembayaran.show');
 
 // 2. Rute POST untuk MEMPROSES pembayaran
-//    Rute ini menerima data dari form 'pembayaran.blade.php'
+//    Rute ini menerima data dari form 'pembayaran.blade.php'
 Route::post('/kasir/pembayaran/proses', [OrderController::class, 'processManualPayment'])
     ->name('kasir.pembayaran.process');
 
-// Route::get('/kasir/input-pesanan', [OrderController::class, 'showInputPage'])
-//     ->name('kasir.input');
+
+Route::post('/member-login', [CustomerController::class, 'login'])->name('member.login.post');
 
 // Auth routes (login, register, logout, dll)
 require __DIR__.'/auth.php';

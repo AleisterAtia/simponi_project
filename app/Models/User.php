@@ -17,9 +17,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'role',       // admin/kasir
-        'shift_id',   // relasi ke shift
-        'is_active',  // status aktif/tidak
+        'role',      // admin/kasir/customer
+        'shift_id',  // relasi ke shift
+        'is_active', // status aktif/tidak
     ];
 
     /**
@@ -44,5 +44,15 @@ class User extends Authenticatable
     public function shift()
     {
         return $this->belongsTo(Shift::class);
+    }
+
+    /**
+     * Relasi ke Customer (One-to-One)
+     * Setiap akun User dengan role 'customer' memiliki satu data member Customer.
+     */
+    public function customer()
+    {
+        // Mencari entri di tabel 'customers' yang user_id-nya cocok dengan id User ini
+        return $this->hasOne(Customer::class);
     }
 }

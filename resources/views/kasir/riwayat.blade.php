@@ -138,7 +138,9 @@
                                     {{ $order->user->name ?? 'N/A' }} {{-- Mengambil nama kasir dari relasi --}}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <a href="#" class="font-medium text-orange-600 hover:text-orange-900">Print</a>
+                                    <a href="{{ route('kasir.riwayat.print', ['orderId' => $order->id]) }}" 
+                                        target="_blank" 
+                                        class="font-medium text-orange-600 hover:text-orange-900">Print</a>
                                 </td>
                             </tr>
                         @empty

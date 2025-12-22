@@ -10,8 +10,23 @@ class Order extends Model
     use HasFactory;
 
     protected $fillable = [
-        'customer_id','order_code','total_price','payment_method','status',
-        'note','order_type','user_id','customer_name','customer_phone','table_number','notes',
+        'customer_id',
+        'order_code',
+        'total_price', // Total Akhir
+        'payment_method',
+        'status',
+        'note',
+        'order_type',
+        'user_id',
+        'customer_name',
+        'customer_phone',
+        'table_number',
+        'notes',
+        
+        // ⬇️ TIGA KOLOM BARU WAJIB DITAMBAH DI SINI ⬇️
+        'subtotal',             // Subtotal Awal (Basis Diskon)
+        'discount_percentage',  // Total Persen Diskon
+        'discount_amount',      // Nilai Rupiah Diskon
     ];
 
     public function customer() {

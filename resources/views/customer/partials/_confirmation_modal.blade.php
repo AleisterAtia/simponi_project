@@ -16,7 +16,7 @@
             </svg>
         </div>
         <h2 class="text-xl font-bold text-gray-800 mt-3">Konfirmasi Pesanan</h2>
-        <p class="text-sm text-gray-500">Periksa kembali pesanan Anda sebelum mengirim ke kasir</p>
+        <p class="text-sm text-gray-500">Periksa kembali pesanan dan data diri Anda</p>
     </div>
 
     <div class="overflow-y-auto p-6 space-y-5" style="background-color: #FFFBF5;">
@@ -47,20 +47,21 @@
             </div>
 
             <div class="border-t pt-3 mt-3 space-y-1 text-sm">
+                {{-- TIDAK ADA DISKON DI SINI, HANYA SUBTOTAL MURNI --}}
                 <div class="flex justify-between">
-                    <span class="text-gray-600">Subtotal:</span>
-                    {{-- 'cartTotal' adalah subtotal (total asli dari keranjang) --}}
+                    <span class="text-gray-600">Subtotal Awal:</span>
                     <span class="font-medium text-gray-800" x-text="formatCurrency(cartTotal)"></span>
                 </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-600">Pajak (10%):</span>
-                    <span class="font-medium text-gray-800" x-text="formatCurrency(cartTotal * 0.1)"></span>
-                </div>
             </div>
+            
+            {{-- 🚨 PERBAIKAN LABEL DI SINI --}}
             <div class="flex justify-between font-bold text-lg mt-3 pt-3 border-t">
-                <span>Total Pembayaran:</span>
-                <span class="text-orange-600" x-text="formatCurrency(cartTotal * 1.1)"></span>
+                <span>Total Pesanan (Pre-Diskon):</span>
+                <span class="text-orange-600" x-text="formatCurrency(cartTotal)"></span>
             </div>
+            <p x-show="isMember" class="text-xs text-green-600 font-semibold text-right -mt-2">
+                Diskon Member akan dihitung di halaman berikutnya.
+            </p>
         </div>
 
         <div class="bg-white p-4 rounded-lg shadow-sm border">

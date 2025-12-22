@@ -17,7 +17,7 @@
                 </h2>
 
                 <p class="text-lg text-orange-100 mb-6">
-                    Setiap pembelian Rp 10.000 = 1 poin. Tukarkan poin dengan berbagai hadiah menarik!
+                    Setiap pembelian Rp 10.000 = 10 poin. Tukarkan poin dengan berbagai hadiah menarik!
                 </p>
 
                 <div class="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-8 text-center">

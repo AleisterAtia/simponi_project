@@ -9,94 +9,121 @@ use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
-public function index(Request $request)
-{
-    $tab = $request->input('tab', 'bulanan');
+    public function index(Request $request)
+    {
+        // 1. Tentukan Rentang Tanggal (Date Range Logic)
 
-    // Kita gunakan satu patokan waktu 'sekarang'
-    $now = Carbon::now();
+        // Default: Bulan Ini
+        $startDate = Carbon::now()->startOfMonth();
+        $endDate = Carbon::now()->endOfMonth();
+        $label = 'Bulan Ini';
+        $tab = $request->input('tab', 'bulanan'); // Default tab
 
-    // Default values (gunakan copy() agar $now tidak berubah-ubah)
-    $startDate = $now->copy()->startOfMonth();
-    $endDate   = $now->copy()->endOfMonth();
-    $daysInPeriod = $now->day;
+        // A. Cek Filter Manual (Input Tanggal) - Prioritas Tertinggi
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $startDate = Carbon::parse($request->start_date)->startOfDay();
+            $endDate = Carbon::parse($request->end_date)->endOfDay();
+            $label = $startDate->format('d M Y') . ' - ' . $endDate->format('d M Y');
+            $tab = 'custom'; // Tandai sebagai custom agar tab lain tidak aktif
+        }
+        // B. Cek Tab Shortcut
+        elseif ($tab == 'harian') {
+            $startDate = Carbon::today()->startOfDay();
+            $endDate = Carbon::today()->endOfDay();
+            $label = 'Hari Ini (' . $startDate->format('d M Y') . ')';
+        }
+        elseif ($tab == 'mingguan') {
+            $startDate = Carbon::now()->startOfWeek();
+            $endDate = Carbon::now()->endOfWeek();
+            $label = 'Minggu Ini';
+        }
 
-    // Tentukan rentang tanggal berdasarkan tab
-    if ($tab === 'harian') {
-        $startDate = $now->copy()->startOfDay();
-        $endDate   = $now->copy()->endOfDay();
-        $daysInPeriod = 1;
-    } elseif ($tab === 'mingguan') {
-        $startDate = $now->copy()->startOfWeek();
-        $endDate   = $now->copy()->endOfWeek();
-        $daysInPeriod = 7;
-    } elseif ($tab === 'bulanan') {
-        // Paksa set ulang agar yakin
-        $startDate = $now->copy()->startOfMonth();
-        $endDate   = $now->copy()->endOfMonth();
-        $daysInPeriod = $now->day;
+        // Hitung selisih hari untuk rata-rata (hindari pembagian 0)
+        $daysInPeriod = max(1, $startDate->diffInDays($endDate) + 1);
+
+
+        // 2. Query Utama (Ringkasan)
+        // Ambil order yang statusnya 'done' dalam rentang tanggal
+        $ordersQuery = Order::whereIn('status', ['done', 'complete'])
+           ->whereBetween('created_at', [$startDate, $endDate]);
+
+
+        $totalPendapatan = $ordersQuery->sum('total_price'); // Sum total harga
+        $totalTransaksi = $ordersQuery->count(); // Hitung jumlah baris
+        $rataRataHarian = $totalPendapatan / $daysInPeriod;
+
+
+        // 3. Menu Terlaris (FIX ERROR $pendapatan)
+        // Kita perlu join tabel untuk mendapatkan nama menu dan menghitung subtotal item
+        $menuTerlaris = DB::table('order_items')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->join('menus', 'menus.id', '=', 'order_items.menu_id')
+            ->whereIn('orders.status', ['done', 'complete'])
+            ->whereBetween('orders.created_at', [$startDate, $endDate])
+            ->select(
+                'menus.name',
+                DB::raw('SUM(order_items.quantity) as total_terjual'),
+                DB::raw('SUM(order_items.subtotal) as pendapatan') // <--- INI SOLUSI ERRORNYA
+            )
+            ->groupBy('menus.id', 'menus.name')
+            ->orderByDesc('total_terjual')
+            ->limit(5)
+            ->get();
+
+
+        // 4. Distribusi Penjualan (Kategori)
+        // Menghitung berapa item terjual per kategori
+        $kategoriStats = DB::table('order_items')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->join('menus', 'menus.id', '=', 'order_items.menu_id')
+            ->join('categories', 'categories.id', '=', 'menus.category_id') // Asumsi ada tabel categories
+            ->whereIn('orders.status', ['done', 'complete'])
+            ->whereBetween('orders.created_at', [$startDate, $endDate])
+            ->select(
+                'categories.name',
+                DB::raw('SUM(order_items.quantity) as total_item')
+            )
+            ->groupBy('categories.id', 'categories.name')
+            ->get();
+
+        // Hitung Persentase & Formatting Data Kategori
+        $totalItemTerjual = $kategoriStats->sum('total_item');
+        $distribusiPenjualan = $kategoriStats->map(function ($item) use ($totalItemTerjual) {
+            return [
+                'name' => $item->name,
+                'total' => $item->total_item,
+                'percentage' => $totalItemTerjual > 0 ? ($item->total_item / $totalItemTerjual) * 100 : 0,
+                'color' => $this->getCategoryColor($item->name) // Helper warna
+            ];
+        });
+
+
+        // 5. Kirim Data ke View
+        return view('admin.laporan', [
+            'tab' => $tab,
+            'tanggalLabel' => $label,
+            'totalPendapatan' => $totalPendapatan,
+            'totalTransaksi' => $totalTransaksi,
+            'rataRataHarian' => $rataRataHarian,
+            'menuTerlaris' => $menuTerlaris,
+            'distribusiPenjualan' => $distribusiPenjualan,
+        ]);
     }
 
-    // --- DEBUG AREA ---
-    // Jika masih error, uncomment baris di bawah ini untuk melihat tanggal pastinya.
-    // Pastikan startDate dan endDate BERBEDA.
-    // dd($startDate->toDateTimeString(), $endDate->toDateTimeString());
-    // ------------------
+    // Helper sederhana untuk warna kategori (Bisa disesuaikan)
+    private function getCategoryColor($categoryName)
+    {
+        $colors = [
+            'bg-orange-500',
+            'bg-blue-500',
+            'bg-green-500',
+            'bg-yellow-400',
+            'bg-purple-500',
+            'bg-pink-500',
+            'bg-indigo-500'
+        ];
 
-    // 1. Query dasar
-    $ordersQuery = Order::where('status', 'done')
-        ->whereBetween('created_at', [$startDate, $endDate]);
-
-    // 2. Hitung Ringkasan (TETAP GUNAKAN CLONE)
-    $totalPendapatan = $ordersQuery->clone()->sum('total_price');
-    $totalTransaksi  = $ordersQuery->clone()->count();
-
-    // Hitung rata-rata (hindari pembagian dengan nol)
-    $rataRataHarian = ($totalTransaksi > 0 && $daysInPeriod > 0)
-                        ? $totalPendapatan / $daysInPeriod
-                        : 0;
-
-    // 3. Menu Terlaris
-    $menuTerlaris = DB::table('order_items')
-        ->join('orders', 'order_items.order_id', '=', 'orders.id')
-        ->join('menus', 'order_items.menu_id', '=', 'menus.id')
-        ->where('orders.status', 'done')
-        ->whereBetween('orders.created_at', [$startDate, $endDate])
-        ->select('menus.name', DB::raw('SUM(order_items.quantity) as total_terjual'))
-        ->groupBy('menus.name')
-        ->orderByDesc('total_terjual')
-        ->limit(5)
-        ->get();
-
-    // 4. Distribusi Penjualan (KOSONGKAN DULU sementara debugging)
-    $distribusiPenjualan = collect();
-
-    return view('admin.laporan', [
-        'tab' => $tab,
-        'totalPendapatan' => $totalPendapatan,
-        'totalTransaksi' => $totalTransaksi,
-        'rataRataHarian' => $rataRataHarian,
-        'menuTerlaris' => $menuTerlaris,
-        'distribusiPenjualan' => $distribusiPenjualan,
-        'tanggalLabel' => $this->getTanggalLabel($tab, $startDate, $endDate)
-    ]);
-}
-
-// Update sedikit helper tanggalnya agar lebih akurat untuk mingguan
-private function getTanggalLabel($tab, $startDate, $endDate = null) {
-    if ($tab === 'harian') return $startDate->format('d F Y');
-    if ($tab === 'mingguan') return $startDate->format('d M') . ' - ' . $endDate->format('d M Y');
-    return $startDate->format('F Y');
-}
-
-    // Helper untuk warna chart (sesuaikan dengan kategori Anda)
-    private function getCategoryColor($categoryName) {
-        switch (strtolower($categoryName)) {
-            case 'coffee': return 'bg-yellow-800'; // Coklat tua
-            case 'matcha': return 'bg-green-700'; // Hijau
-            case 'milk':   return 'bg-gray-700';   // Hitam/Abu tua
-            case 'tea':    return 'bg-orange-400'; // Oranye
-            default:       return 'bg-gray-400';
-        }
+        // Pilih warna acak berdasarkan panjang nama agar konsisten
+        return $colors[strlen($categoryName) % count($colors)] ?? 'bg-gray-400';
     }
 }

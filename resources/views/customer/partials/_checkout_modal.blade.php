@@ -34,8 +34,9 @@
             <label for="customer_name" class="block text-sm font-medium text-gray-700">Nama <span
                     class="text-red-500">*</span></label>
             <input type="text" name="customer_name" id="customer_name" x-model="customerInfo.name"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
-                required>
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500
+    {{ Auth::check() ? 'bg-gray-100 cursor-not-allowed' : '' }}"
+                {{ Auth::check() ? 'readonly' : '' }} required>
             <template x-if="errors.customer_name">
                 <p class="mt-1 text-sm text-red-600" x-text="errors.customer_name[0]"></p>
             </template>
@@ -45,8 +46,9 @@
             <label for="customer_phone" class="block text-sm font-medium text-gray-700">Nomor Telepon <span
                     class="text-red-500">*</span></label>
             <input type="tel" name="customer_phone" id="customer_phone" x-model="customerInfo.phone"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
-                required>
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500
+    {{ Auth::check() ? 'bg-gray-100 cursor-not-allowed' : '' }}"
+                {{ Auth::check() ? 'readonly' : '' }} required>
             <template x-if="errors.customer_phone">
                 <p class="mt-1 text-sm text-red-600" x-text="errors.customer_phone[0]"></p>
             </template>

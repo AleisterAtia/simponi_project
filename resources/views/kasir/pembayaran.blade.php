@@ -1,19 +1,31 @@
 @extends('kasir.kasir') {{-- Sesuaikan dengan layout kasir oranye Anda --}}
 
 @section('content')
+    {{-- 1. PERBAIKAN UTAMA: Hitung Subtotal di awal untuk digunakan Alpine --}}
+    @php
+        // $items, $subtotal, $total, $discount_amount, $discount_percentage, $customer, $customer_id 
+        // sudah tersedia dari Controller
+        $totalTanpaPajak = $subtotal; // Subtotal Awal
+
+        // Gunakan fungsi untuk formatCurrency di JS
+        $jsSubtotal = $subtotal; 
+        $jsTotalAkhir = $total;
+    @endphp
+
     <div class="p-6 md:p-10" x-data="{
-        total: {{ $total }},
+        // Menggunakan nilai total akhir yang sudah didiskon
+        total: {{ $jsTotalAkhir }}, 
         paymentMethod: 'cash',
         uangDiterima: '',
         kembalian: 0,
-    
+        
         // Fungsi ini akan menghitung kembalian secara real-time
         calculateChange() {
             let diterima = parseFloat(this.uangDiterima) || 0;
-            let kembali = diterima - this.total;
-            this.kembalian = kembali >= 0 ? kembali : 0; // Hanya tampilkan jika positif
+            let kembali = diterima - this.total; // 'this.total' kini adalah Total Akhir (setelah diskon)
+            this.kembalian = kembali >= 0 ? kembali : 0; 
         },
-    
+        
         // Fungsi untuk tombol uang pas
         setUang(amount) {
             this.uangDiterima = amount;
@@ -24,16 +36,28 @@
         <form action="{{ route('kasir.pembayaran.process') }}" method="POST">
             @csrf
 
-            {{-- Input tersembunyi untuk mengirim data ke controller --}}
+            {{-- ========================================================= --}}
+            {{-- ➡️ INPUT TERSEMBUNYI WAJIB (Nilai yang Dihitung di Backend) ⬅️ --}}
+            {{-- ========================================================= --}}
+            <input type="hidden" name="subtotal" value="{{ $subtotal }}">
+            <input type="hidden" name="discount_percentage" value="{{ $discount_percentage }}">
+            <input type="hidden" name="discount_amount" value="{{ $discount_amount }}">
+            <input type="hidden" name="customer_id" value="{{ $customer_id ?? '' }}">
+            
+            {{-- Input tersembunyi untuk mengirim data ITEMS ke controller --}}
             @foreach ($items as $index => $item)
                 <input type="hidden" name="items[{{ $index }}][menu_id]" value="{{ $item['menu_id'] }}">
                 <input type="hidden" name="items[{{ $index }}][quantity]" value="{{ $item['quantity'] }}">
                 <input type="hidden" name="items[{{ $index }}][price]" value="{{ $item['price'] }}">
             @endforeach
-            <input type="hidden" name="total_price" :value="total">
+            
+            {{-- Mengirim Total Akhir (Nilai yang harus dibayar) --}}
+            <input type="hidden" name="total_price" :value="total"> 
+            
+            {{-- Mengirim Uang Diterima dan Kembalian (Dari Alpine) --}}
             <input type="hidden" name="uang_diterima" x-model="uangDiterima">
             <input type="hidden" name="kembalian" x-model="kembalian">
-
+            
 
             <div class="flex items-center gap-3 mb-6">
                 <a href="{{ route('kasir.orders.createManual') }}" class="text-gray-500 hover:text-gray-800">
@@ -53,16 +77,16 @@
                 <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 h-fit">
                     <h2 class="text-xl font-semibold text-gray-800 border-b pb-3 mb-4">Ringkasan Pesanan</h2>
                     <div class="space-y-3 mb-4">
-                        @php $subtotal = 0; @endphp
+                        {{-- ULANGI LOOP ITEM --}}
                         @foreach ($items as $item)
                             @php
                                 $itemSubtotal = $item['price'] * $item['quantity'];
-                                $subtotal += $itemSubtotal;
+                                // Ambil nama menu dari Model, karena $items hanya array data
+                                $menuName = \App\Models\Menu::find($item['menu_id'])->name ?? 'Nama Menu';
                             @endphp
                             <div class="flex justify-between">
                                 <div>
-                                    <p class="font-semibold">
-                                        {{ \App\Models\Menu::find($item['menu_id'])->name ?? 'Nama Menu' }}</p>
+                                    <p class="font-semibold">{{ $menuName }}</p>
                                     <p class="text-sm text-gray-500">{{ $item['quantity'] }} x @rupiah($item['price'])</p>
                                 </div>
                                 <p class="font-semibold">@rupiah($itemSubtotal)</p>
@@ -70,22 +94,23 @@
                         @endforeach
                     </div>
 
-                    @php
-                        $pajak = $subtotal * 0.1; // Pajak 10%
-                    @endphp
-
                     <div class="border-t pt-4 space-y-2">
                         <div class="flex justify-between text-gray-600">
-                            <span>Subtotal:</span>
+                            <span>Subtotal Awal:</span>
                             <span class="font-medium">@rupiah($subtotal)</span>
                         </div>
-                        <div class="flex justify-between text-gray-600">
-                            <span>Pajak (10%):</span>
-                            <span class="font-medium">@rupiah($pajak)</span>
-                        </div>
+                        
+                        {{-- TAMPILAN DISKON --}}
+                        @if ($discount_amount > 0)
+                            <div class="flex justify-between text-red-600 font-semibold">
+                                <span>Diskon Member ({{ $discount_percentage }}%):</span>
+                                <span>— @rupiah($discount_amount)</span>
+                            </div>
+                        @endif
+
                         <div class="flex justify-between text-2xl font-bold text-gray-900 mt-2 pt-2 border-t">
-                            <span>Total:</span>
-                            <span class="text-orange-600">@rupiah($total)</span>
+                            <span>TOTAL BAYAR:</span>
+                            <span class="text-orange-600" x-text="formatCurrency(total)"></span> 
                         </div>
                     </div>
                 </div>
@@ -100,8 +125,12 @@
                                 <label for="customer_name" class="block text-sm font-medium text-gray-700">Nama
                                     Pelanggan</label>
                                 <input type="text" name="customer_name" id="customer_name" required
-                                    placeholder="Nama Pelanggan" value="{{ old('customer_name') }}"
+                                    placeholder="Nama Pelanggan" 
+                                    value="{{ old('customer_name', $customer->name ?? '') }}"
                                     class="w-full mt-1 rounded-lg border-gray-300 focus:ring-orange-500 focus:border-orange-500 @error('customer_name') border-red-500 @enderror">
+                                <small class="text-xs text-green-600 mt-1">
+                                    @if ($customer) Member: {{ $customer->member_code }} @endif
+                                </small>
                                 @error('customer_name')
                                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                                 @enderror
@@ -110,7 +139,8 @@
                                 <label for="customer_phone" class="block text-sm font-medium text-gray-700">Nomor
                                     Telepon</label>
                                 <input type="tel" name="customer_phone" id="customer_phone" required
-                                    placeholder="0812..." value="{{ old('customer_phone') }}"
+                                    placeholder="0812..." 
+                                    value="{{ old('customer_phone', $customer->phone ?? '') }}"
                                     class="w-full mt-1 rounded-lg border-gray-300 focus:ring-orange-500 focus:border-orange-500 @error('customer_phone') border-red-500 @enderror">
                                 @error('customer_phone')
                                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -183,9 +213,9 @@
                         <div class="mt-6">
                             <button type="submit" {{-- Tombol nonaktif jika bayar tunai tapi uangnya kurang --}}
                                 :disabled="paymentMethod === 'cash' && (uangDiterima === '' || parseFloat(
-                                    uangDiterima) < total)"
+                                        uangDiterima) < total)"
                                 class="w-full bg-orange-500 text-white font-bold py-3 px-4 rounded-lg transition hover:bg-orange-600
-                                       disabled:bg-gray-300 disabled:cursor-not-allowed">
+                                             disabled:bg-gray-300 disabled:cursor-not-allowed">
                                 Proses Pembayaran
                             </button>
                         </div>
@@ -193,8 +223,7 @@
                     </div>
                 </div>
             </div>
-    </div>
-    </form>
+        </form>
     </div>
 
     {{-- Helper CSS untuk tombol uang --}}
@@ -236,7 +265,6 @@
             // Pasang di Alpine
             document.addEventListener('alpine:init', () => {
                 // Daftarkan 'formatCurrency' sebagai fungsi global di Alpine
-                // sehingga Anda bisa menggunakannya di 'x-text'
                 Alpine.magic('formatCurrency', () => {
                     return (value) => formatCurrency(value);
                 });
