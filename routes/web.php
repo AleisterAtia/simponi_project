@@ -40,6 +40,11 @@ Route::middleware(['auth', IsAdmin::class])
         // Dashboard
         Route::get('/', [AdminController::class, 'index'])->name('dashboard');
 
+
+        // Pengaturan Admin
+        Route::get('/pengaturan', [AdminController::class, 'settings'])->name('settings');
+
+
         // CRUD Menu
         Route::resource('menu', MenuController::class);
         Route::post('menu/{menu}/toggle-status', [MenuController::class, 'toggleStatus'])->name('menu.toggleStatus');

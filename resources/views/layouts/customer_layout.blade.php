@@ -187,7 +187,7 @@
 
                 <div>
                     <div class="flex items-center space-x-3 mb-4">
-                        <img src="{{ asset('images/LogoToko.jpeg') }}" alt="Wayouji Logo" class="h-16">
+                        <img src="{{ asset('images/LogoToko.jpeg') }}" alt="Wayouji Logo" class="h-16 rounded-lg">
                         <span class="font-bold text-xl">Mr.Wayojiai Buah Premium Padang</span>
                     </div>
                     <p class="text-sm text-orange-100 leading-relaxed">
@@ -208,7 +208,8 @@
                                 <path stroke-linecap="round" stroke-linejoin="round"
                                     d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
                             </svg>
-                            <span>Jl. Premium Raya No. 123, Jakarta Selatan</span>
+                            <span>Jalan Moh.Hatta No.15 Kel,Koto Luar
+                                Kec.Pauh Kota Padang</span>
                         </li>
                         <li class="flex items-center gap-3">
                             <svg class="w-5 h-5 flex-shrink-0 text-orange-200" xmlns="http://www.w3.org/2000/svg"
@@ -216,7 +217,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round"
                                     d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-2.63-1.39-4.86-3.62-6.25-6.25l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
                             </svg>
-                            <span>(021) 555-0123</span>
+                            <span>0852-1116-2216</span>
                         </li>
                         <li class="flex items-center gap-3">
                             <svg class="w-5 h-5 flex-shrink-0 text-orange-200" xmlns="http://www.w3.org/2000/svg"
@@ -238,15 +239,15 @@
                                 <path stroke-linecap="round" stroke-linejoin="round"
                                     d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <span>Senin - Sabtu: 10:00 - 22:00</span>
+                            <span>Setiap Hari : 09:00 - 00:00</span>
                         </li>
-                        <li class="flex items-center gap-3">
+                        {{-- <li class="flex items-center gap-3">
                             <svg class="w-5 h-5 flex-shrink-0 text-orange-200" xmlns="http://www.w3.org/2000/svg"
                                 fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round"
                                     d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.807 9.98-3.807 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.75 18.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
                             </svg>
-                            <span>WIFI: Tersedia</span> {{-- Saya ganti 'jlabuah' menjadi 'Tersedia' --}}
+                            {{-- <span>WIFI: Tersedia</span> Saya ganti 'jlabuah' menjadi 'Tersedia' --}}
                         </li>
                     </ul>
                 </div>
