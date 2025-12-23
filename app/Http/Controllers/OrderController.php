@@ -3,15 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Models\Menu;
+use App\Models\User;
 use App\Models\Order;
+use App\Models\Reward;
 use App\Models\Topping;
 use App\Models\Category;
+use App\Models\Customer;
 use App\Models\OrderItem;
 use Illuminate\Http\Request;
 use App\Events\OrderStatusUpdated;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator; // <-- TAMBAHKAN IMPORT INI
+use Illuminate\Support\Facades\Validator;
+use App\Http\Controllers\DiscountController;
+use App\Notifications\StockAlertNotification;
+use Illuminate\Support\Facades\Auth; // <-- TAMBAHKAN IMPORT INI
 
 class OrderController extends Controller
 {
@@ -48,7 +54,7 @@ class OrderController extends Controller
         // Mulai query builder untuk Order
         // 'with' digunakan untuk Eager Loading relasi (lebih efisien)
         $query = Order::with(['user', 'orderItems.menu'])
-                      ->where('status', 'done'); // Hanya ambil transaksi yang selesai
+                      ->whereIn('status', ['done', 'complete']); // Hanya ambil transaksi yang selesai
 
 
         // --- FILTER LOGIC ---
@@ -180,9 +186,8 @@ class OrderController extends Controller
     // INI ADALAH METHOD BARU PENGGANTI 'checkout'
     // Didesain untuk menerima AJAX dari modal
     // ===================================================================
-    public function store(Request $request)
+   public function store(Request $request)
     {
-        // 1. Validasi input dari modal
         $validator = Validator::make($request->all(), [
             'customer_name'  => 'required|string|max:255',
             'customer_phone' => 'required|string|max:20',
@@ -190,71 +195,98 @@ class OrderController extends Controller
             'notes'          => 'nullable|string',
         ]);
 
-        // 2. Jika validasi gagal
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // 3. Ambil keranjang dari session
         $cart = session()->get('cart', []);
-
         if (empty($cart)) {
             return response()->json(['message' => 'Keranjang Anda kosong.'], 400);
         }
 
         DB::beginTransaction();
         try {
-            // PERUBAHAN: Hitung subtotal dan total dengan pajak 10% di backend
             $subtotal = collect($cart)->sum('subtotal');
-            $total_price_with_tax = $subtotal * 1.10; // Asumsi pajak 10%
 
-            // 4. Buat order
+            $customer = null;
+            $discountPercentage = 0.00;
+            $discountAmount = 0.00;
+
+            if (Auth::check()) {
+                $customer = Auth::user()->customer;
+            }
+
+            if ($customer && $customer->is_member) {
+                $discountController = new DiscountController();
+                $discountPercentage = $discountController->calculateDiscountPercentage($customer);
+                $discountAmount = round($subtotal * ($discountPercentage / 100));
+            }
+
+            $total_price_final = $subtotal - $discountAmount;
+
             $order = Order::create([
-                // === Data dari Modal Guest Checkout ===
+                'customer_id'    => $customer ? $customer->id : null,
                 'customer_name'  => $request->customer_name,
                 'customer_phone' => $request->customer_phone,
                 'table_number'   => $request->table_number,
                 'notes'          => $request->notes,
-
-                // === Info Order (Disesuaikan dengan DB Anda) ===
                 'order_code'     => 'ORD-' . time() . rand(10, 99),
-                'total_price'    => $total_price_with_tax, // <-- PERUBAHAN: Total harga + pajak
-                'payment_method' => null, // <-- PERUBAHAN: Default null, akan diisi di modal 3
-                'status'         => 'new',  // <-- PERUBAHAN: Sesuai skema DB Anda
-                'order_type'     => 'online', // <-- PERUBAHAN: Sesuai skema DB Anda
+                'subtotal'       => $subtotal,
+                'discount_percentage' => $discountPercentage,
+                'discount_amount' => $discountAmount,
+                'total_price'    => $total_price_final,
+                'payment_method' => null,
+                'status'         => 'new',
+                'order_type'     => 'online',
             ]);
 
-            // 5. Buat order item
-foreach ($cart as $cartKey => $item) { // <--- $menuId diubah namanya jadi $cartKey
-    $order->orderItems()->create([
-        'menu_id'  => $item['menu_id'], // <--- AMBIL DARI SINI
-        'quantity' => $item['quantity'],
-        'price'    => $item['price'],
-        'subtotal' => $item['subtotal']
-        // 'toppings' => $item['toppings']
-    ]);
-}
-    // Anda juga bisa menyimpan topping di sini jika ada kolomnya
+            foreach ($cart as $cartKey => $item) {
 
-            // 6. Bersihkan session keranjang
+                $menu = Menu::find($item['menu_id']);
+
+                if (!$menu) {
+                    throw new \Exception("Menu ID {$item['menu_id']} tidak ditemukan.");
+                }
+
+                if ($menu->stock < $item['quantity']) {
+                    throw new \Exception("Stok menu '{$menu->name}' tidak mencukupi (Sisa: {$menu->stock}).");
+                }
+
+                // Kurangi Stok
+                $menu->decrement('stock', $item['quantity']);
+
+                // 🔔 NOTIFIKASI JIKA STOK HABIS (0) 🔔
+                if ($menu->fresh()->stock <= 0) {
+                    $recipients = User::whereIn('role', ['admin', 'kasir'])->get();
+                    foreach ($recipients as $recipient) {
+                        $recipient->notify(new StockAlertNotification($menu));
+                    }
+                }
+
+                $order->orderItems()->create([
+                    'menu_id'  => $item['menu_id'],
+                    'quantity' => $item['quantity'],
+                    'price'    => $item['price'],
+                    'subtotal' => $item['subtotal'],
+                    'toppings' => $item['toppings'] ?? null
+                ]);
+            }
+
             session()->forget('cart');
             DB::commit();
 
-
             session(['tracking_order_id' => $order->id]);
 
-            // 7. PERUBAHAN UTAMA: Kirim respon SUKSES sebagai JSON
-            // Kirim objek 'order' agar bisa ditangkap Alpine.js
             return response()->json([
                 'success' => true,
-                'message' => 'Pesanan berhasil dibuat, silakan pilih pembayaran.',
-                'order'   => $order // <-- Kirim data order ke frontend
+                'message' => 'Pesanan berhasil dibuat.',
+                'order'   => $order
             ]);
 
         } catch (\Exception $e) {
             DB::rollback();
-            Log::error('Checkout Error: ' . $e->getMessage()); // Catat error
-            return response()->json(['message' => 'Terjadi kesalahan saat memproses pesanan.'], 500);
+            Log::error('Checkout Error: ' . $e->getMessage());
+            return response()->json(['message' => $e->getMessage()], 500);
         }
     }
 
@@ -271,9 +303,39 @@ foreach ($cart as $cartKey => $item) { // <--- $menuId diubah namanya jadi $cart
 
         try {
             // Update order yang ada (via Route-Model Binding)
+            // Update order yang ada
             $order->update([
-                'payment_method' => $request->payment_method
+                'payment_method' => $request->payment_method,
+                'status' => 'new', // <--- GANTI 'paid' MENJADI 'done'
             ]);
+
+            // =========================================================
+            // SISTEM POIN MEMBER (START) - Ditambahkan di sini
+            // =========================================================
+
+            // Cek apakah order punya customer_id (artinya member login saat checkout)
+            if ($order->customer_id) {
+                $customer = Customer::find($order->customer_id);
+
+                // Cek apakah data customer valid dan dia member aktif
+                if ($customer && $customer->is_member) {
+
+                    // RUMUS POIN: Setiap kelipatan 10.000 dapat 10 poin
+                    // Contoh: 25.000 / 10.000 = 2.5 -> floor jadi 2 -> 2 * 10 = 20 Poin
+                    $pointsEarned = floor($order->total_price / 10000) * 10;
+
+                    if ($pointsEarned > 0) {
+                        $customer->points = $customer->points + $pointsEarned;
+                        $customer->save(); // Simpan perubahan poin
+
+                        // Debugging (Opsional): Cek di log laravel.log
+                        Log::info("Poin ditambahkan: {$pointsEarned} ke Customer ID: {$customer->id}");
+                    }
+                }
+            }
+            // =========================================================
+            // SISTEM POIN MEMBER (END)
+            // =========================================================
 
             session(['tracking_order_id' => $order->id]);
 
@@ -290,6 +352,7 @@ foreach ($cart as $cartKey => $item) { // <--- $menuId diubah namanya jadi $cart
 
         } catch (\Exception $e) {
             Log::error('Update Payment Error: ' . $e->getMessage());
+
             return response()->json(['message' => 'Gagal memperbarui metode pembayaran.'], 500);
         }
     }
@@ -338,14 +401,33 @@ foreach ($cart as $cartKey => $item) { // <--- $menuId diubah namanya jadi $cart
     public function showInputPage()
     {
         // Ambil data menu dan kategori untuk ditampilkan di halaman input
-        // Kita juga perlu $menus dan $categories untuk view 'input.blade.php'
         $menus = Menu::orderBy('name', 'asc')->get();
         $categories = Category::all();
+
+        $rewards = collect(); // Default: Collection kosong
+        $isMember = false;
+
+        // ⬇️ LOGIKA KONDISIONAL MEMBER DAN REWARD ⬇️
+        if (Auth::check()) {
+            // Asumsi: User memiliki relasi hasOne/hasMany ke Model Customer
+            $customer = Auth::user()->customer;
+
+            // Cek apakah user memiliki data customer DAN berstatus member (is_member = 1)
+            if ($customer && $customer->is_member) {
+                $isMember = true;
+
+                // Ambil data rewards, muat relasi menu (eager loading)
+                $rewards = Reward::get();
+            }
+        }
+        // ⬆️ END LOGIKA KONDISIONAL MEMBER DAN REWARD ⬆️
 
         // Tampilkan view 'kasir.input' dan kirim datanya
         return view('kasir.input', [
             'menus' => $menus,
-            'categories' => $categories
+            'categories' => $categories,
+            'rewards' => $rewards,     // ⬅️ KIRIM DATA REWARD
+            'isMember' => $isMember,   // ⬅️ KIRIM STATUS MEMBER (FIX ERROR UNDEFINED)
         ]);
     }
 
@@ -355,37 +437,34 @@ foreach ($cart as $cartKey => $item) { // <--- $menuId diubah namanya jadi $cart
         $total_price_from_form = 0; // Ini adalah subtotal dari form sebelumnya
 
         if ($request->isMethod('POST')) {
-            // ALUR NORMAL: Datang dari 'input.blade.php'
             $validated = $request->validate([
                 'items' => 'required|array|min:1',
                 'items.*.menu_id' => 'required|exists:menus,id',
                 'items.*.quantity' => 'required|integer|min:1',
                 'items.*.price' => 'required|numeric',
-                'total_price' => 'required|numeric|min:0'
+                'total_price' => 'required|numeric|min:0',
+                'customer_id' => 'nullable|exists:customers,id', // ⬅️ TAMBAHAN VALIDASI CUSTOMER ID
             ]);
             $items = $validated['items'];
             $total_price_from_form = $validated['total_price'];
-
+            $customerId = $validated['customer_id'] ?? null;
         } elseif ($request->isMethod('GET') && session()->hasOldInput()) {
-            // ALUR GAGAL VALIDASI: Datang dari redirect()->back()
-            $oldInput = $request->old(); // Ambil input lama (termasuk error)
+            $oldInput = $request->old();
 
             if (empty($oldInput['items']) || empty($oldInput['total_price'])) {
-                // Jika data lama tidak ada, lempar kembali ke input
-                return redirect()->route('kasir.input')
+                // 🚨 PERBAIKAN: Ubah 'kasir.input' ke 'kasir.orders.createManual'
+                return redirect()->route('kasir.orders.createManual')
                     ->with('error', 'Keranjang Anda kedaluwarsa. Silakan ulangi.');
             }
 
             $items = $oldInput['items'];
             $total_price_from_form = $oldInput['total_price'];
-
+            $customerId = $oldInput['customer_id'] ?? null;
         } else {
-            // ALUR AKSES LANGSUNG: User mengetik URL /kasir/pembayaran
-            return redirect()->route('kasir.input')
+            // 🚨 PERBAIKAN: Ubah 'kasir.input' ke 'kasir.orders.createManual'
+            return redirect()->route('kasir.orders.createManual')
                 ->with('error', 'Silakan pilih item terlebih dahulu.');
         }
-
-        // --- Lanjutkan dengan logika yang sama ---
 
         // Hitung ulang subtotal di backend untuk keamanan
         $subtotal = 0;
@@ -394,21 +473,39 @@ foreach ($cart as $cartKey => $item) { // <--- $menuId diubah namanya jadi $cart
         }
 
         // Pastikan total dari form = subtotal (keamanan)
-        // Jika $total_price_from_form tidak sama dengan $subtotal, ada manipulasi data
         if ($total_price_from_form != $subtotal) {
-             return redirect()->route('kasir.input')
+            // 🚨 PERBAIKAN: Ubah 'kasir.input' ke 'kasir.orders.createManual'
+            return redirect()->route('kasir.orders.createManual')
                 ->with('error', 'Terjadi kesalahan perhitungan total. Silakan coba lagi.');
         }
 
-        $pajak = $subtotal * 0.10; // Pajak 10%
-        $totalDenganPajak = $subtotal + $pajak;
+        // ⬇️ LOGIKA DISKON DI SINI ⬇️
+        $discountPercentage = 0.00;
+        $discountAmount = 0.00;
+        $customer = null;
+
+        if ($customerId) {
+            $customer = Customer::find($customerId);
+            if ($customer && $customer->is_member) {
+                $discountController = new DiscountController();
+                $discountPercentage = $discountController->calculateDiscountPercentage($customer);
+                $discountAmount = round($subtotal * ($discountPercentage / 100));
+            }
+        }
+
+        $totalFinal = $subtotal - $discountAmount; // Total Akhir adalah Subtotal dikurangi Diskon
+        // ⬆️ END LOGIKA DISKON ⬆️
+
 
         // Kirim data ke view pembayaran
         return view('kasir.pembayaran', [
             'items' => $items,
             'subtotal' => $subtotal,
-            'pajak' => $pajak,
-            'total' => $totalDenganPajak
+            'total' => $totalFinal, // Mengirim Total Akhir setelah diskon
+            'customer' => $customer, // Kirim data customer ke view
+            'discount_amount' => $discountAmount, // Kirim nilai diskon ke view
+            'discount_percentage' => $discountPercentage, // Kirim persentase ke view
+            'customer_id' => $customerId, // Kirim ID customer untuk proses selanjutnya
         ]);
     }
 
@@ -416,49 +513,79 @@ foreach ($cart as $cartKey => $item) { // <--- $menuId diubah namanya jadi $cart
      * MEMPROSES akhir pembayaran dari 'pembayaran.blade.php'.
      * Menyimpan order ke database.
      */
-public function processManualPayment(Request $request)
+ public function processManualPayment(Request $request)
     {
-        // 1. Validasi (TAMBAHKAN customer_name & customer_phone)
         $validated = $request->validate([
             'items' => 'required|array|min:1',
             'items.*.menu_id' => 'required|exists:menus,id',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.price' => 'required|numeric',
+            'subtotal' => 'required|numeric|min:0',
+            'discount_percentage' => 'required|numeric|min:0',
+            'discount_amount' => 'required|numeric|min:0',
             'total_price' => 'required|numeric|min:0',
             'payment_method' => 'required|in:cash,qris',
-
-            // ⬇️ TAMBAHAN VALIDASI BARU ⬇️
+            'customer_id' => 'nullable|exists:customers,id',
             'customer_name' => 'required|string|max:255',
             'customer_phone' => 'required|string|max:20',
-
             'uang_diterima' => 'nullable|numeric',
             'kembalian' => 'nullable|numeric',
         ]);
 
+        $subtotal_check = 0;
+        foreach ($validated['items'] as $item) {
+            $subtotal_check += $item['price'] * $item['quantity'];
+        }
+
+        $calculated_final_total = round($validated['subtotal'] - $validated['discount_amount']);
+
+        if (round($subtotal_check) != round($validated['subtotal']) || $calculated_final_total != round($validated['total_price'])) {
+            Log::warning('Payment fraud detected. Subtotal mismatch.');
+            return redirect()->route('kasir.orders.createManual')
+                ->with('error', 'Kesalahan harga terdeteksi. Silakan ulangi pesanan.');
+        }
+
         DB::beginTransaction();
         try {
-            // 2. Buat Order (GUNAKAN data pelanggan dari validasi)
             $order = Order::create([
                 'user_id' => auth()->id(),
                 'order_code' => 'KSR-' . time() . rand(10, 99),
+                'customer_id' => $validated['customer_id'] ?? null,
+                'subtotal' => $validated['subtotal'],
+                'discount_percentage' => $validated['discount_percentage'],
+                'discount_amount' => $validated['discount_amount'],
                 'total_price' => $validated['total_price'],
                 'payment_method' => $validated['payment_method'],
                 'status' => 'done',
                 'order_type' => 'offline',
-
-                // ⬇️ PERUBAHAN LOGIKA ⬇️
-                'customer_name' => $validated['customer_name'], // Gunakan data dari form
-                'customer_phone' => $validated['customer_phone'], // Gunakan data dari form
-
+                'customer_name' => $validated['customer_name'],
+                'customer_phone' => $validated['customer_phone'],
+                'uang_diterima' => $validated['uang_diterima'] ?? $validated['total_price'],
+                'kembalian' => $validated['kembalian'] ?? 0,
                 'table_number' => null,
             ]);
 
-            // 3. Simpan Order Items (Tidak ada perubahan di sini)
+            // 3. Simpan Order Items & KURANGI STOK
             foreach ($validated['items'] as $item) {
-                // ... (kode Anda untuk 'orderItems' sudah benar)
-                $menu = Menu::find($item['menu_id']);
-                $subtotal = $item['price'] * $item['quantity'];
 
+                $menu = Menu::find($item['menu_id']);
+
+                if ($menu->stock < $item['quantity']) {
+                    throw new \Exception("Stok menu '{$menu->name}' tidak mencukupi (Sisa: {$menu->stock}).");
+                }
+
+                // Kurangi Stok
+                $menu->decrement('stock', $item['quantity']);
+
+                // 🔔 NOTIFIKASI JIKA STOK HABIS (0) 🔔
+                if ($menu->fresh()->stock <= 0) {
+                    $recipients = User::whereIn('role', ['admin', 'kasir'])->get();
+                    foreach ($recipients as $recipient) {
+                        $recipient->notify(new StockAlertNotification($menu));
+                    }
+                }
+
+                $subtotal = $item['price'] * $item['quantity'];
                 $order->orderItems()->create([
                     'menu_id' => $item['menu_id'],
                     'quantity' => $item['quantity'],
@@ -467,21 +594,90 @@ public function processManualPayment(Request $request)
                 ]);
             }
 
+            $customer = $order->customer;
+            if ($customer && $customer->is_member) {
+                $pointsEarned = floor($order->total_price / 1000);
+                $customer->points += $pointsEarned;
+                $customer->save();
+            }
+
             DB::commit();
 
-            // 4. Redirect (PERBAIKAN BUG)
-            // ⬇️ GANTI 'kasir.orders.createManual' MENJADI 'kasir.input' ⬇️
             return redirect()->route('kasir.orders.createManual')
-            ->with('success', 'Pembayaran berhasil! Order ' . $order->order_code . ' telah dibuat.');
+                ->with('success', 'Pembayaran berhasil! Order ' . $order->order_code . ' telah dibuat.');
 
         } catch (\Exception $e) {
-        DB::rollBack();
-        Log::error('Gagal memproses pembayaran manual: ' . $e->getMessage());
-
-        // 5. Redirect (PERBAIKAN BUG)
-        return redirect()->route('kasir.orders.createManual')
-            ->with('error', 'Terjadi kesalahan. Pembayaran gagal diproses.'); // <-- INI BENAR
-
+            DB::rollBack();
+            Log::error('Gagal memproses pembayaran manual: ' . $e->getMessage());
+            return redirect()->route('kasir.orders.createManual')
+                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        }
     }
+
+    private function getOrdersData()
+    {
+        // 1. Menunggu Konfirmasi (Status: new)
+        // Diurutkan dari yang paling baru masuk (created_at desc)
+        $newOrders = Order::where('status', 'new')
+                        ->where('order_type', 'online')
+                        ->orderBy('created_at', 'desc')
+                        ->get();
+
+        // 2. Sedang Diproses (Status: process)
+        // Diurutkan dari yang paling lama antri (FIFO - First In First Out)
+        $processingOrders = Order::where('status', 'process')
+                        ->where('order_type', 'online')
+                        ->orderBy('updated_at', 'asc')
+                        ->get();
+
+        // 3. Siap Diambil / Selesai (Status: done)
+        // Diurutkan dari yang baru saja selesai
+        $readyOrders = Order::where('status', 'done')
+                        ->where('order_type', 'online')
+                        ->orderBy('updated_at', 'desc')
+                        ->get();
+
+        return compact('newOrders', 'processingOrders', 'readyOrders');
     }
+
+    /**
+     * Halaman Utama Dashboard Pesanan Online (Route: /kasir/pesanan-online)
+     * Memuat layout lengkap + data awal.
+     */
+    public function onlineDashboard()
+    {
+        $data = $this->getOrdersData();
+        return view('kasir.online', $data);
+    }
+
+    /**
+     * Method Khusus AJAX Auto Refresh (Route: /kasir/pesanan-online/refresh)
+     * Hanya mengembalikan potongan HTML (Partial View) untuk performa ringan.
+     */
+    public function refreshOnlineOrders()
+    {
+        $data = $this->getOrdersData();
+        return view('customer.partials._online_orders_grid', $data);
+    }
+
+    /**
+     * Mengubah Status Pesanan (Digunakan oleh tombol di Kanban Board)
+     * Route: POST /kasir/pesanan-online/{order}/update-status
+     */
+    public function updateStatus(Request $request, Order $order)
+{
+    $request->validate([
+        'status' => 'required|in:new,process,done,cancel,complete'
+    ]);
+
+    $order->update([
+        'status' => $request->status
+    ]);
+
+    // Broadcast event agar Tracking Customer terupdate otomatis
+    broadcast(new OrderStatusUpdated($order));
+
+    return redirect()->back()->with('success', 'Status pesanan berhasil diperbarui.');
+}
+
 }

@@ -33,6 +33,15 @@
                 </svg>
                 <span>Manajemen Menu</span>
             </x-sidebar-link>
+
+            {{-- Rewards --}}
+            <x-sidebar-link :href="route('admin.rewards.index')" :active="request()->is('admin/rewards*')">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M20 12v8a2 2 0 01-2 2h-4v-10h6zm-8 0v10H6a2 2 0 01-2-2v-8h6zm8-2h-6V4h4a2 2 0 012 2v4zm-8 0H4V6a2 2 0 012-2h4v6zm0 0V4m0 6h6" />
+                </svg>
+                <span>Rewards</span>
+            </x-sidebar-link>
             
             {{-- Pesanan --}}
             <x-sidebar-link href="#" :active="request()->is('admin/pesanan*')">

@@ -4,18 +4,16 @@
     {{--
     Komponen Alpine.js untuk Halaman Tracking.
     Kita passing status awal & ID order dari Blade ke Alpine.
---}}
+    --}}
     <div class="max-w-md mx-auto my-8 p-4 md:p-6 rounded-lg" style="background-color: #F7F5F2;" x-data="orderTracker('{{ $order->status }}', {{ $order->id }})"
         x-init="listenForUpdates()">
 
-        <!-- 1. Nomor Pesanan -->
         <div class="text-center bg-white p-5 rounded-lg shadow-sm border mb-5">
             <p class="text-sm text-gray-500">Nomor Pesanan</p>
             <h1 class="text-3xl font-bold text-gray-800 tracking-wider">{{ $order->order_code }}</h1>
             <p class="text-xs text-gray-400 mt-1">{{ $order->created_at->format('d/m/Y, H:i:s') }}</p>
         </div>
 
-        <!-- 2. Status & Progress Bar -->
         <div class="bg-white p-5 rounded-lg shadow-sm border mb-5">
             <div class="flex items-center">
                 <div class="p-2 bg-yellow-100 rounded-full mr-3">
@@ -30,7 +28,6 @@
                     <p class="text-sm text-gray-500" x-text="statusSubtitle"></p>
                 </div>
             </div>
-            <!-- Progress Bar Real-time -->
             <div class="w-full bg-gray-200 rounded-full h-2.5 mt-4">
                 <div class="bg-orange-600 h-2.5 rounded-full transition-all duration-500"
                     :style="`width: ${progressPercentage}%`"></div>
@@ -38,12 +35,11 @@
             <p class="text-xs text-right text-gray-500 mt-1" x-text="`${progressPercentage}%`"></p>
         </div>
 
-        <!-- 3. Timeline Pesanan -->
+
         <div class="bg-white p-5 rounded-lg shadow-sm border mb-5">
             <h3 class="font-semibold mb-4 text-gray-700">Timeline Pesanan</h3>
             <ul class="space-y-4">
 
-                <!-- Step 1: Pesanan Diterima (new) -->
                 <li class="flex items-center" :class="{ 'opacity-50': !isStatusActive('new') }">
                     <div class="w-8 h-8 rounded-full flex items-center justify-center text-white"
                         :class="isStatusActive('new') ? 'bg-orange-600' : 'bg-gray-300'">
@@ -58,7 +54,7 @@
                     </div>
                 </li>
 
-                <!-- Step 2: Sedang Diproses (process) -->
+
                 <li class="flex items-center" :class="{ 'opacity-50': !isStatusActive('process') }">
                     <div class="w-8 h-8 rounded-full flex items-center justify-center text-white"
                         :class="isStatusActive('process') ? 'bg-orange-600' : 'bg-gray-300'">
@@ -74,7 +70,7 @@
                     </div>
                 </li>
 
-                <!-- Step 3: Siap Diambil (done) -->
+
                 <li class="flex items-center" :class="{ 'opacity-50': !isStatusActive('done') }">
                     <div class="w-8 h-8 rounded-full flex items-center justify-center text-white"
                         :class="isStatusActive('done') ? 'bg-orange-600' : 'bg-gray-300'">
@@ -86,12 +82,12 @@
                         <span class="font-medium" :class="isStatusActive('done') ? 'text-gray-800' : 'text-gray-500'">Siap
                             Diambil</span>
                         <p class="text-xs text-gray-500" x-show="isStatusActive('done')">Pesanan sudah siap! Silakan ambil
-                            di counter.</p>
+                            di counter. Terima kasih</p>
                     </div>
                 </li>
 
-                <!-- Step 4: Selesai (cancel - asumsi 'cancel' adalah 'selesai/diambil') -->
-                <li class="flex items-center" :class="{ 'opacity-50': !isStatusActive('cancel') }">
+
+                {{-- <li class="flex items-center" :class="{ 'opacity-50': !isStatusActive('complete') }">
                     <div class="w-8 h-8 rounded-full flex items-center justify-center text-white"
                         :class="isStatusActive('cancel') ? 'bg-orange-600' : 'bg-gray-300'">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -104,11 +100,11 @@
                         <p class="text-xs text-gray-500" x-show="isStatusActive('cancel')">Pesanan telah diselesaikan.
                             Terima kasih!</p>
                     </div>
-                </li>
+                </li> --}}
             </ul>
         </div>
 
-        <!-- 4. Detail Pesanan (Statik) -->
+
         <div class="bg-white p-5 rounded-lg shadow-sm border">
             <h3 class="font-semibold mb-4 text-gray-700">Detail Pesanan</h3>
             <div class="space-y-1 text-sm text-gray-600 mb-3">
@@ -116,9 +112,8 @@
                 <p><strong>Telepon:</strong> {{ $order->customer_phone }}</p>
             </div>
             <div class="border-t pt-3">
-                @php $subtotal = 0; @endphp
+                {{-- Hapus perhitungan PHP subtotal di sini, hanya tampilkan item --}}
                 @foreach ($order->orderItems as $item)
-                    @php $subtotal += $item->subtotal; @endphp
                     <div class="flex justify-between items-center text-sm mb-2">
                         <div>
                             <p class="font-medium">{{ $item->menu->name }}</p>
@@ -128,25 +123,32 @@
                     </div>
                 @endforeach
             </div>
+
+            {{-- ⬇️ BLOK DETAIL HARGA DISKON DARI KOLOM MODEL $ORDER ⬇️ --}}
             <div class="border-t pt-3 mt-3 space-y-1 text-sm">
-                @php
-                    $pajak = $subtotal * 0.1; // Pajak 10%
-                    $total = $order->total_price; // Ambil total dari DB
-                @endphp
+
+                {{-- 1. Subtotal Awal --}}
                 <div class="flex justify-between">
-                    <span class="text-gray-600">Subtotal:</span>
-                    <span class="font-medium text-gray-800">Rp {{ number_format($subtotal, 0, ',', '.') }}</span>
+                    <span class="text-gray-600">Subtotal Awal:</span>
+                    <span class="font-medium text-gray-800">Rp {{ number_format($order->subtotal, 0, ',', '.') }}</span>
                 </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-600">Pajak (10%):</span>
-                    <span class="font-medium text-gray-800">Rp {{ number_format($pajak, 0, ',', '.') }}</span>
-                </div>
+
+                {{-- 2. Baris Diskon Member (Kondisional) --}}
+                @if ($order->discount_amount > 0)
+                    <div class="flex justify-between text-red-600 font-semibold border-b pb-2">
+                        <span>Diskon Member ({{ number_format($order->discount_percentage) }}%):</span>
+                        <span>— Rp {{ number_format($order->discount_amount, 0, ',', '.') }}</span>
+                    </div>
+                @endif
             </div>
+
+            {{-- 3. Total Pembayaran Akhir --}}
             <div class="flex justify-between font-bold text-lg mt-3 pt-3 border-t">
-                <span>Total:</span>
-                <span>Rp {{ number_format($total, 0, ',', '.') }}</span>
+                <span>TOTAL AKHIR:</span>
+                <span class="text-orange-600">Rp {{ number_format($order->total_price, 0, ',', '.') }}</span>
             </div>
         </div>
+
         <a href="{{ route('landingpage') }}"
             class="inline-block w-full bg-orange-600 text-white font-semibold text-center py-3 px-6 rounded-lg shadow hover:bg-orange-700 transition duration-200 mt-6">
             Kembali ke Halaman Menu
@@ -178,7 +180,7 @@
                     'done': {
                         text: 'Siap Diambil',
                         subtitle: 'Pesanan sudah siap! Silakan ambil di counter.',
-                        progress: 75,
+                        progress: 100,
                         order: 3
                     },
                     'cancel': {
@@ -239,22 +241,33 @@
                 x-transition:enter-end="opacity-100 scale-100" x-transition:leave="ease-in duration-200"
                 x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-90">
                 <div class="flex flex-col items-center text-center">
-                    <div class="flex items-center justify-center w-20 h-20 mb-5 bg-green-100 rounded-full">
-                        <svg class="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                            xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7">
-                            </path>
+                    <div class="flex items-center justify-center w-20 h-20 mb-5 bg-orange-100 rounded-full">
+                        <svg class="w-12 h-12 text-orange-600" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
                     </div>
 
-                    <h2 class="text-2xl font-bold text-gray-900 mb-2">Pembayaran Berhasil!</h2>
+
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">
+                        Menunggu Konfirmasi Pembayaran
+                    </h2>
+
+                    <p class="text-gray-600 mb-6">
+                        Silakan <span class="font-semibold text-orange-600">pergi ke kasir</span>
+                        untuk melakukan konfirmasi pesanan dan pembayaran Anda.
+                        <br>
+                        Setelah dikonfirmasi, status pesanan akan diperbarui secara real-time.
+                    </p>
+
 
                     {{-- Menampilkan pesan dari controller --}}
-                    <p class="text-gray-600 mb-6">
+                    {{-- <p class="text-gray-600 mb-6">
                         {{ session('order_success') }}
                         <br>
                         Status pesanan Anda akan diperbarui secara real-time.
-                    </p>
+                    </p> --}}
 
                     {{-- Tombol untuk menutup modal --}}
                     <button @click="showModal = false"

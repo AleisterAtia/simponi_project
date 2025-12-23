@@ -63,8 +63,8 @@
                 @if (Auth::check())
                     <span class="text-sm text-gray-700">Hi, {{ Auth::user()->name }}</span>
 
-                    <a href="#"
-                        class="text-sm text-gray-600 hover:text-orange-500 transition font-medium">Admin</a>
+                    {{-- <a href="#"
+                        class="text-sm text-gray-600 hover:text-orange-500 transition font-medium">Admin</a> --}}
 
                     <form method="POST" action="{{ route('logout') }}" class="inline">
                         @csrf
@@ -79,15 +79,14 @@
                         </button>
                     </form>
                 @else
-                    <a href="{{ route('login') }}"
+                    <button type="button" @click="loginModalOpen = true"
                         class="bg-white border border-gray-300 text-gray-700 hover:border-orange-500 hover:text-orange-500 font-semibold py-2 px-4 rounded-lg flex items-center space-x-1.5 transition duration-200">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1">
+                                d="M11 16l-4-4m0 0l4-4m-4 4h1 4m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1">
                             </path>
                         </svg>
-                        <span>Login Member</span>
-                    </a>
+                        <span>Login Member</span> </button>
 
                     <a href="#" {{-- Ganti # dengan route('register') jika ada --}}
                         class="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center space-x-1.5 transition duration-200">
@@ -137,8 +136,6 @@
             <div class="flex flex-col space-y-3">
                 @if (Auth::check())
                     <span class="font-semibold text-gray-800 px-3">Hi, {{ Auth::user()->name }}</span>
-                    <a href="#"
-                        class="block w-full text-left px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 hover:text-orange-600 transition font-medium">Admin</a>
 
                     <form method="POST" action="{{ route('logout') }}" class="w-full">
                         @csrf
@@ -274,6 +271,7 @@
     @include('customer.partials._qris_success_modal') --}}
 
     @include('customer.partials._topping_modal')
+    @include('customer.partials._login_member_modal')
 
     <script>
         function wayoujiApp() {
@@ -281,6 +279,7 @@
                 // ===================================
                 // A. SEMUA PROPERTI ANDA
                 // ===================================
+                loginModalOpen: false,
                 openCart: false,
                 checkoutModal: false,
                 confirmationModal: false,
@@ -299,7 +298,15 @@
                 },
                 submitting: false, // <-- State untuk mencegah klik ganda
 
-                tab: 'semua', // <-- TAMBAHAN BARU: Untuk tab menu
+                // ⬇️ TAMBAHAN BARU UNTUK REWARD ⬇️
+                tab: 'semua',
+                search: '', // <-- TAMBAHAN BARU: Untuk tab menu
+
+                // Tambahkan properti untuk menangani data member yang dibutuhkan
+                currentPoints: {{ Auth::check() && Auth::user()->customer ? Auth::user()->customer->points : 0 }},
+                isMember: {{ Auth::check() && Auth::user()->customer && Auth::user()->customer->is_member ? 'true' : 'false' }},
+                // ⬆️ TAMBAHAN BARU UNTUK REWARD ⬆️
+
 
                 cartItems: [], // Akan berisi item [ { id: 1, name: '...', ... }, ... ]
                 cartTotal: 0,
@@ -315,12 +322,22 @@
                 init() {
                     this.fetchCart();
                     this.loadToppings();
+                },
 
+                customerInfo: {
+                    // Cek apakah user login? Jika ya, isi nama. Jika tidak, kosong.
+                    name: "{{ Auth::check() ? Auth::user()->name : '' }}",
 
+                    // Cek apakah user login & punya data customer? Jika ya, isi no HP.
+                    phone: "{{ Auth::check() && Auth::user()->customer ? Auth::user()->customer->phone : '' }}",
+
+                    table_number: '',
+                    notes: ''
                 },
 
                 async loadToppings() {
                     try {
+                        // PERHATIAN: Asumsi route 'toppings.json' sudah ada
                         const response = await fetch('{{ route('toppings.json') }}');
                         if (!response.ok) throw new Error('Failed to fetch toppings');
                         this.allToppings = await response.json();
@@ -466,6 +483,44 @@
                     }
                 },
 
+
+                // ⬇️ FUNGSI BARU: REDEEM REWARD MEMBER ⬇️
+                async redeemReward(rewardId) {
+                    if (!confirm('Anda yakin ingin menukarkan reward ini? Poin Anda akan dikurangi secara permanen.')) {
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch(`{{ url('/redeem-reward') }}/${rewardId}`, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute(
+                                    'content'),
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
+                            }
+                        });
+
+                        const data = await response.json();
+
+                        if (response.ok) {
+                            alert(data.message);
+                            if (data.new_points !== undefined) {
+                                // Update Alpine state for points display
+                                this.currentPoints = data.new_points;
+                            }
+                            // Refresh the page to update the rewards button state
+                            window.location.reload();
+                        } else {
+                            // Error handling for insufficient points or stock
+                            alert('Gagal menukar: ' + (data.message || 'Terjadi kesalahan.'));
+                        }
+                    } catch (error) {
+                        console.error('Error redeeming reward:', error);
+                        alert('Terjadi kesalahan jaringan saat menukar reward.');
+                    }
+                },
+                // ⬆️ END FUNGSI REDEEM REWARD ⬆️
 
 
                 async submitCheckout() {

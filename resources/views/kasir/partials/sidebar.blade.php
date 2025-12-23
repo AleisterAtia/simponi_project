@@ -14,7 +14,7 @@
         {{-- Link Dashboard --}}
         <a href="{{ route('kasir.dashboard') }}"
             class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition
-                  {{ request()->routeIs('kasir.dashboard') ? 'bg-white text-orange-600 font-bold shadow' : 'hover:bg-orange-600' }}">
+                     {{ request()->routeIs('kasir.dashboard') ? 'bg-white text-orange-600 font-bold shadow' : 'hover:bg-orange-600' }}">
             <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
                 stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round"
@@ -24,7 +24,7 @@
         </a>
 
         {{-- Link Input Pesanan --}}
-        <a href="{{ route('kasir.orders.createManual') }}" {{-- Ganti # dengan route Anda --}}
+        <a href="{{ route('kasir.orders.createManual') }}"
             class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition hover:bg-orange-600">
             <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
                 stroke="currentColor">
@@ -34,12 +34,23 @@
             <span>Input Pesanan</span>
         </a>
 
+        {{-- [START] Link Manajemen Member BARU --}}
+        <a href="{{ route('kasir.customers.index') }}"
+            class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition
+                     {{ request()->routeIs('kasir.customers.index') ? 'bg-white text-orange-600 font-bold shadow' : 'hover:bg-orange-600' }}">
+            <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.125A2.25 2.25 0 0112.75 21H5.25A2.25 2.25 0 013 18.75v-1.5A2.25 2.25 0 015.25 15h12.375M17.25 21V12M12 9a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span>Manajemen Member</span>
+        </a>
+        {{-- [END] Link Manajemen Member BARU --}}
+
         {{-- Link Pesanan Online --}}
         <a href="{{ route('kasir.orders.online') }}"
             class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition
-                  {{ request()->routeIs('kasir.orders.online')
-                      ? 'bg-white text-orange-600 font-bold shadow'
-                      : 'hover:bg-orange-600' }}">
+                     {{ request()->routeIs('kasir.orders.online')
+                          ? 'bg-white text-orange-600 font-bold shadow'
+                          : 'hover:bg-orange-600' }}">
             <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
                 stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round"
@@ -60,7 +71,7 @@
         </a>
 
         {{-- Link Riwayat Transaksi --}}
-        <a href="{{ route('kasir.riwayat') }}" {{-- Ganti # dengan route Anda --}}
+        <a href="{{ route('kasir.riwayat') }}"
             class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition hover:bg-orange-600">
             <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
                 stroke="currentColor">
