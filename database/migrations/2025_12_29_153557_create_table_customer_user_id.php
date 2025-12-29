@@ -42,5 +42,6 @@ return new class extends Migration
             // Hapus hanya kolom yang ditambahkan di UP() ini
             $table->dropColumn(['birth_date']); 
         });
+        
     }
 };
