@@ -191,6 +191,23 @@
 
                         <span class="ml-auto text-xs font-semibold text-gray-500">Digital</span>
                     </button>
+                    <div
+    x-show="selectedPayment === 'qris'"
+    x-transition
+    class="mt-4 p-4 bg-white border rounded-lg text-center">
+
+    <p class="font-semibold mb-3">Scan QRIS di bawah ini</p>
+
+    <img
+        src="/images/qris.jpeg"
+        alt="QRIS MR WAYOJI"
+        class="mx-auto w-64 h-auto border rounded-lg">
+
+    <p class="text-sm text-gray-500 mt-2">
+        MR. WAYOJI AI – QRIS Pembayaran
+    </p>
+</div>
+
                 </div>
             </div>
 
@@ -216,7 +233,7 @@
                     </div>
                 </template>
 
-                <template x-if="selectedPayment === 'qris'">
+                {{-- <template x-if="selectedPayment === 'qris'">
                     <div class="w-full">
                         <p class="text-center font-semibold text-gray-700 mb-2 text-sm">Scan QRIS di bawah ini:</p>
 
@@ -250,7 +267,7 @@
                             </div>
                         </div>
                     </div>
-                </template>
+                </template> --}}
 
             </div>
 

@@ -13,6 +13,8 @@ class Order extends Model
         'customer_id',
         'order_code',
         'total_price', // Total Akhir
+        'uang_diterima', // Tambahkan ini
+        'kembalian', // Tambahkan ini
         'payment_method',
         'status',
         'note',
@@ -22,7 +24,7 @@ class Order extends Model
         'customer_phone',
         'table_number',
         'notes',
-        
+
         // ⬇️ TIGA KOLOM BARU WAJIB DITAMBAH DI SINI ⬇️
         'subtotal',             // Subtotal Awal (Basis Diskon)
         'discount_percentage',  // Total Persen Diskon

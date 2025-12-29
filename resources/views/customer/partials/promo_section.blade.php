@@ -10,7 +10,6 @@
                 <span
                     class="inline-block bg-white bg-opacity-25 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
                     Promo Spesial
-
                 </span>
 
                 <h2 class="text-3xl md:text-4xl font-extrabold my-3">

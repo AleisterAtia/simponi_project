@@ -3,33 +3,47 @@
 @section('content')
     {{-- 1. PERBAIKAN UTAMA: Hitung Subtotal di awal untuk digunakan Alpine --}}
     @php
-        // $items, $subtotal, $total, $discount_amount, $discount_percentage, $customer, $customer_id 
+        // $items, $subtotal, $total, $discount_amount, $discount_percentage, $customer, $customer_id
         // sudah tersedia dari Controller
         $totalTanpaPajak = $subtotal; // Subtotal Awal
 
         // Gunakan fungsi untuk formatCurrency di JS
-        $jsSubtotal = $subtotal; 
+        $jsSubtotal = $subtotal;
         $jsTotalAkhir = $total;
     @endphp
 
     <div class="p-6 md:p-10" x-data="{
-        // Menggunakan nilai total akhir yang sudah didiskon
-        total: {{ $jsTotalAkhir }}, 
+        total: {{ $jsTotalAkhir }},
         paymentMethod: 'cash',
         uangDiterima: '',
         kembalian: 0,
-        
-        // Fungsi ini akan menghitung kembalian secara real-time
+
+        // 1. Fungsi Hitung Kembalian
         calculateChange() {
+            // Pakai parseFloat agar aman, jika kosong anggap 0
             let diterima = parseFloat(this.uangDiterima) || 0;
-            let kembali = diterima - this.total; // 'this.total' kini adalah Total Akhir (setelah diskon)
-            this.kembalian = kembali >= 0 ? kembali : 0; 
+            let totalTagihan = parseFloat(this.total) || 0;
+
+            let kembali = diterima - totalTagihan;
+
+            // Jika minus (uang kurang), set kembalian jadi 0
+            this.kembalian = kembali >= 0 ? kembali : 0;
         },
-        
-        // Fungsi untuk tombol uang pas
+
+        // 2. Fungsi Set Uang (Tombol Cepat)
         setUang(amount) {
             this.uangDiterima = amount;
-            this.calculateChange();
+            this.calculateChange(); // Panggil hitung ulang otomatis
+        },
+
+        // 3. Fungsi Format Rupiah (Langsung di sini agar terbaca)
+        formatRupiah(value) {
+            return new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(value);
         }
     }">
 
@@ -43,21 +57,21 @@
             <input type="hidden" name="discount_percentage" value="{{ $discount_percentage }}">
             <input type="hidden" name="discount_amount" value="{{ $discount_amount }}">
             <input type="hidden" name="customer_id" value="{{ $customer_id ?? '' }}">
-            
+
             {{-- Input tersembunyi untuk mengirim data ITEMS ke controller --}}
             @foreach ($items as $index => $item)
                 <input type="hidden" name="items[{{ $index }}][menu_id]" value="{{ $item['menu_id'] }}">
                 <input type="hidden" name="items[{{ $index }}][quantity]" value="{{ $item['quantity'] }}">
                 <input type="hidden" name="items[{{ $index }}][price]" value="{{ $item['price'] }}">
             @endforeach
-            
+
             {{-- Mengirim Total Akhir (Nilai yang harus dibayar) --}}
-            <input type="hidden" name="total_price" :value="total"> 
-            
+            <input type="hidden" name="total_price" :value="total">
+
             {{-- Mengirim Uang Diterima dan Kembalian (Dari Alpine) --}}
             <input type="hidden" name="uang_diterima" x-model="uangDiterima">
             <input type="hidden" name="kembalian" x-model="kembalian">
-            
+
 
             <div class="flex items-center gap-3 mb-6">
                 <a href="{{ route('kasir.orders.createManual') }}" class="text-gray-500 hover:text-gray-800">
@@ -99,7 +113,7 @@
                             <span>Subtotal Awal:</span>
                             <span class="font-medium">@rupiah($subtotal)</span>
                         </div>
-                        
+
                         {{-- TAMPILAN DISKON --}}
                         @if ($discount_amount > 0)
                             <div class="flex justify-between text-red-600 font-semibold">
@@ -110,7 +124,7 @@
 
                         <div class="flex justify-between text-2xl font-bold text-gray-900 mt-2 pt-2 border-t">
                             <span>TOTAL BAYAR:</span>
-                            <span class="text-orange-600" x-text="formatCurrency(total)"></span> 
+                            <span class="text-orange-600" x-text="formatCurrency(total)"></span>
                         </div>
                     </div>
                 </div>
@@ -125,11 +139,12 @@
                                 <label for="customer_name" class="block text-sm font-medium text-gray-700">Nama
                                     Pelanggan</label>
                                 <input type="text" name="customer_name" id="customer_name" required
-                                    placeholder="Nama Pelanggan" 
-                                    value="{{ old('customer_name', $customer->name ?? '') }}"
+                                    placeholder="Nama Pelanggan" value="{{ old('customer_name', $customer->name ?? '') }}"
                                     class="w-full mt-1 rounded-lg border-gray-300 focus:ring-orange-500 focus:border-orange-500 @error('customer_name') border-red-500 @enderror">
                                 <small class="text-xs text-green-600 mt-1">
-                                    @if ($customer) Member: {{ $customer->member_code }} @endif
+                                    @if ($customer)
+                                        Member: {{ $customer->member_code }}
+                                    @endif
                                 </small>
                                 @error('customer_name')
                                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -139,8 +154,7 @@
                                 <label for="customer_phone" class="block text-sm font-medium text-gray-700">Nomor
                                     Telepon</label>
                                 <input type="tel" name="customer_phone" id="customer_phone" required
-                                    placeholder="0812..." 
-                                    value="{{ old('customer_phone', $customer->phone ?? '') }}"
+                                    placeholder="0812..." value="{{ old('customer_phone', $customer->phone ?? '') }}"
                                     class="w-full mt-1 rounded-lg border-gray-300 focus:ring-orange-500 focus:border-orange-500 @error('customer_phone') border-red-500 @enderror">
                                 @error('customer_phone')
                                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -206,14 +220,14 @@
 
                             <div class="flex justify-between text-lg font-semibold text-gray-800 mt-4 pt-4 border-t">
                                 <span>Kembalian:</span>
-                                <span class="text-green-600" x-text="formatCurrency(kembalian)">Rp 0</span>
+                                <span class="text-green-600" x-text="formatRupiah(kembalian)">Rp 0</span>
                             </div>
                         </div>
 
                         <div class="mt-6">
                             <button type="submit" {{-- Tombol nonaktif jika bayar tunai tapi uangnya kurang --}}
                                 :disabled="paymentMethod === 'cash' && (uangDiterima === '' || parseFloat(
-                                        uangDiterima) < total)"
+                                    uangDiterima) < total)"
                                 class="w-full bg-orange-500 text-white font-bold py-3 px-4 rounded-lg transition hover:bg-orange-600
                                              disabled:bg-gray-300 disabled:cursor-not-allowed">
                                 Proses Pembayaran

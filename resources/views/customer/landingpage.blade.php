@@ -132,9 +132,19 @@
                             @forelse ($rewards as $reward)
                                 <div
                                     class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition">
-                                    <div class="bg-gray-50 rounded-lg p-4 mb-4 flex items-center justify-center h-40">
-                                        <img src="https://placehold.co/150x150/orange/white?text={{ substr($reward->name, 0, 3) }}"
-                                            alt="{{ $reward->name }}" class="h-full object-contain mix-blend-multiply">
+                                    <div
+                                        class="bg-gray-50 rounded-lg p-4 mb-4 flex items-center justify-center h-40 overflow-hidden">
+                                        {{-- LOGIKA GAMBAR --}}
+                                        @if ($reward->menu && $reward->menu->image)
+                                            {{-- Jika terhubung menu & punya gambar --}}
+                                            <img src="{{ asset('storage/' . $reward->menu->image) }}"
+                                                alt="{{ $reward->menu->name }}"
+                                                class="h-full w-full object-cover rounded-md">
+                                        @else
+                                            {{-- Fallback: Placeholder Lama --}}
+                                            <img src="https://placehold.co/150x150/orange/white?text={{ substr($reward->name, 0, 3) }}"
+                                                alt="{{ $reward->name }}" class="h-full object-contain mix-blend-multiply">
+                                        @endif
                                     </div>
                                     <h4 class="font-bold text-gray-800 mb-1">{{ $reward->name }}</h4>
                                     <div class="flex items-center justify-between mt-4">
@@ -162,34 +172,68 @@
                     </div>
 
                     {{-- 3. TAB RIWAYAT --}}
+                    {{-- 3. TAB RIWAYAT --}}
                     <div x-show="memberTab === 'history'" x-transition:enter="transition ease-out duration-300">
                         <h3 class="text-lg font-bold text-gray-800 mb-4">Riwayat Transaksi</h3>
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal
-                                        </th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item
-                                        </th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total
-                                        </th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Poin
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
-                                    <tr>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">15/1/2024</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Orange Juice +
-                                            Smoothie</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right">Rp 45.000</td>
-                                        <td
-                                            class="px-6 py-4 whitespace-nowrap text-sm text-orange-600 font-bold text-right">
-                                            +4</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+
+                            {{-- PERBAIKAN: Gunakan $currentCustomer, bukan $member --}}
+                            @if (!$currentCustomer || $currentCustomer->orders->isEmpty())
+                                <div class="p-8 text-center text-gray-500">
+                                    <p>Belum ada riwayat transaksi.</p>
+                                </div>
+                            @else
+                                {{-- GANTI DIV PEMBUNGKUS TABEL DENGAN KODE DI BAWAH INI --}}
+                                {{-- Saya menambahkan 'max-h-[400px]' dan 'overflow-y-auto' --}}
+                                <div class="overflow-x-auto max-h-[400px] overflow-y-auto custom-scrollbar">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        {{-- Header Tabel agar tetap sticky (menempel di atas) saat di-scroll --}}
+                                        <thead class="bg-gray-50 sticky top-0 z-10">
+                                            <tr>
+                                                <th
+                                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase shadow-sm">
+                                                    Tanggal</th>
+                                                <th
+                                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase shadow-sm">
+                                                    Item</th>
+                                                <th
+                                                    class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase shadow-sm">
+                                                    Total</th>
+                                                <th
+                                                    class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase shadow-sm">
+                                                    Poin</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white divide-y divide-gray-200">
+                                            {{-- PERBAIKAN: Gunakan $currentCustomer --}}
+                                            @foreach ($currentCustomer->orders->sortByDesc('created_at') as $order)
+                                                <tr>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                        {{ $order->created_at->format('d/m/Y H:i') }}
+                                                    </td>
+                                                    <td class="px-6 py-4 text-sm text-gray-900">
+                                                        <div class="line-clamp-2 max-w-[200px]"
+                                                            title="{{ $order->orderItems->map(fn($i) => $i->menu->name . ' (' . $i->quantity . ')')->join(', ') }}">
+                                                            @foreach ($order->orderItems as $index => $item)
+                                                                {{ $item->menu->name ?? 'Item dihapus' }}
+                                                                ({{ $item->quantity }})
+                                                                {{ !$loop->last ? ',' : '' }}
+                                                            @endforeach
+                                                        </div>
+                                                    </td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
+                                                        Rp {{ number_format($order->total_price, 0, ',', '.') }}
+                                                    </td>
+                                                    <td
+                                                        class="px-6 py-4 whitespace-nowrap text-sm text-orange-600 font-bold text-right">
+                                                        +{{ number_format(floor($order->total_price / 1000), 0, ',', '.') }}
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @endif
                         </div>
                     </div>
 
@@ -202,6 +246,7 @@
                 {{-- Pastikan file ini berisi kode banner 'Gabung Member & Dapatkan Poin' --}}
                 @include('customer.partials.promo_section')
             @endif
+
 
 
             {{-- ================================================= --}}

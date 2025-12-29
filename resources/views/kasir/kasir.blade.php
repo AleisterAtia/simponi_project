@@ -6,22 +6,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mr.Wayojiai Kasir - Point of Sale</title>
 
-    {{-- PENTING 1: META TAG CSRF (Untuk AJAX/403 Fix) --}}
+    {{-- PENTING 1: META TAG CSRF --}}
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    {{-- PENTING 2: BOOTSTRAP CSS (Untuk Modal, Tabel, Tombol) --}}
+    {{-- PENTING 2: BOOTSTRAP CSS --}}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     {{-- 3. Load Bootstrap Icons --}}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+
+    {{-- TAILWIND & ALPINE --}}
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="//unpkg.com/alpinejs" defer></script>
     <script type="module" src="https://unpkg.com/heroicons@2.1.3/24/outline/index.js"></script>
+
     <style>
         /* Warna background utama yang lebih lembut */
         body {
             background-color: #FFFBF5;
+        }
+
+        /* Mencegah kedip pada elemen Alpine saat loading */
+        [x-cloak] {
+            display: none !important;
         }
     </style>
 </head>
@@ -49,106 +57,126 @@
 
     </div>
 
-    {{-- PENTING 3: JQUERY (Untuk AJAX) --}}
+    {{-- PENTING 3: JQUERY --}}
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 
-    {{-- PENTING 4: BOOTSTRAP JS (Untuk Modal) --}}
+    {{-- PENTING 4: BOOTSTRAP JS --}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     {{-- Script kustom dari view akan dimuat di sini --}}
     @yield('scripts')
 
+    {{-- SCRIPT LOGIKA UTAMA (SUDAH DIPERBAIKI) --}}
+    {{-- GANTI BAGIAN SCRIPT PALING BAWAH DI FILE LAYOUT ANDA DENGAN INI --}}
     <script>
-        function manualOrderApp(menusData) {
+        function manualOrderApp(menusData, toppingsData) {
             return {
-                // DATA
-                allMenus: menusData,
+                // DATA UTAMA
                 tab: 'semua',
+                menus: menusData,
+                allToppings: toppingsData,
                 summaryItems: [],
-                summaryTotal: 0,
 
-                paymentModal: false,
-                selectedPayment: '',
-                submitting: false,
+                // STATE MODAL
+                showModal: false,
+                tempItem: null,
+                tempSelectedToppings: [], // SEKARANG HANYA MENYIMPAN ID (Contoh: [1, 3])
 
-                formatCurrency(number) {
+                // HITUNG TOTAL BELANJA UTAMA
+                get summaryTotal() {
+                    return this.summaryItems.reduce((total, item) => {
+                        return total + (item.totalPricePerItem * item.quantity);
+                    }, 0);
+                },
+
+                formatCurrency(value) {
                     return new Intl.NumberFormat('id-ID', {
                         style: 'currency',
                         currency: 'IDR',
                         minimumFractionDigits: 0
-                    }).format(number);
+                    }).format(value);
                 },
 
-                addItem(menu) {
-                    const existing = this.summaryItems.find(i => i.id === menu.id);
-                    if (existing) {
-                        existing.quantity++;
-                    } else {
-                        this.summaryItems.push({
-                            id: menu.id,
-                            name: menu.name,
-                            price: parseFloat(menu.price),
-                            quantity: 1
-                        });
-                    }
-                    this.calculateTotal();
+                // --- LOGIKA MODAL ---
+
+                openModal(menu) {
+                    this.tempItem = menu;
+                    this.tempSelectedToppings = []; // Reset array ID
+                    this.showModal = true;
                 },
 
+                closeModal() {
+                    this.showModal = false;
+                    this.tempItem = null;
+                },
+
+                // 3. PERBAIKAN: Hitung harga berdasarkan ID yang dipilih
+                calculateTempTotal() {
+                    if (!this.tempItem) return 0;
+                    let basePrice = Number(this.tempItem.price);
+
+                    // Loop ID topping yang dipilih, cari objek aslinya, lalu ambil harganya
+                    let toppingTotal = this.tempSelectedToppings.reduce((sum, toppingId) => {
+                        // Cari data topping lengkap berdasarkan ID
+                        let topping = this.allToppings.find(t => t.id == toppingId);
+                        return sum + (topping ? Number(topping.price) : 0);
+                    }, 0);
+
+                    return basePrice + toppingTotal;
+                },
+
+                // 4. PERBAIKAN: Simpan item dengan mengambil objek topping lengkap
+                confirmAddItem() {
+                    if (!this.tempItem) return;
+
+                    let finalPrice = this.calculateTempTotal();
+
+                    // Kembalikan ID topping menjadi Objek Topping Lengkap untuk disimpan di keranjang
+                    // Agar di struk/view nanti namanya muncul
+                    let selectedToppingObjects = this.tempSelectedToppings.map(id => {
+                        return this.allToppings.find(t => t.id == id);
+                    }).filter(t => t); // Filter jika ada yang undefined
+
+                    this.summaryItems.push({
+                        id: this.tempItem.id,
+                        name: this.tempItem.name,
+                        basePrice: this.tempItem.price,
+                        selectedToppings: JSON.parse(JSON.stringify(selectedToppingObjects)),
+                        totalPricePerItem: finalPrice,
+                        quantity: 1
+                    });
+
+                    this.closeModal();
+                },
+
+                // --- LOGIKA KERANJANG ---
                 updateQty(index, change) {
-                    this.summaryItems[index].quantity += change;
-                    if (this.summaryItems[index].quantity <= 0) {
-                        this.summaryItems.splice(index, 1);
+                    if (this.summaryItems[index].quantity + change > 0) {
+                        this.summaryItems[index].quantity += change;
+                    } else {
+                        if (confirm('Hapus item ini?')) {
+                            this.summaryItems.splice(index, 1);
+                        }
                     }
-                    this.calculateTotal();
-                },
-
-                calculateTotal() {
-                    this.summaryTotal = this.summaryItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-                    return this.summaryTotal;
                 },
 
                 clearSummary() {
                     if (confirm('Hapus semua item?')) {
                         this.summaryItems = [];
-                        this.calculateTotal();
                     }
-                },
-
-                openPaymentModal() {
-                    if (this.summaryItems.length === 0) return;
-                    this.calculateTotal();
-                    this.selectedPayment = '';
-                    this.paymentModal = true;
-                },
-
-                confirmFinalPayment() {
-                    if (!this.selectedPayment) {
-                        alert('Pilih metode pembayaran terlebih dahulu.');
-                        return;
-                    }
-                    this.submitting = true;
-                    document.getElementById('manual-order-form').submit();
                 }
             }
         }
 
+        // JAM DIGITAL
         function updateClock() {
             const now = new Date();
-
-            // 1. Format Tanggal (Bahasa Indonesia)
-            // Contoh: Senin, 13 Oktober 2025
             const dateOptions = {
                 weekday: 'long',
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric'
             };
-            const dateString = now.toLocaleDateString('id-ID', dateOptions);
-
-            // 2. Format Jam (Format 24 jam)
-            // Contoh: 20:13:12
-            // Catatan: toLocaleTimeString 'id-ID' defaultnya pakai titik (20.13), 
-            // kita replace jadi titik dua (:) agar sesuai desain Anda.
             const timeString = now.toLocaleTimeString('id-ID', {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -156,15 +184,13 @@
                 hour12: false
             }).replace(/\./g, ':');
 
-            // 3. Masukkan ke elemen HTML
-            document.getElementById('live-date').innerText = dateString;
-            document.getElementById('live-time').innerText = timeString + ' WIB';
+            const dateEl = document.getElementById('live-date');
+            const timeEl = document.getElementById('live-time');
+
+            if (dateEl) dateEl.innerText = now.toLocaleDateString('id-ID', dateOptions);
+            if (timeEl) timeEl.innerText = timeString + ' WIB';
         }
-
-        // Jalankan fungsi setiap 1 detik (1000ms)
         setInterval(updateClock, 1000);
-
-        // Jalankan sekali saat halaman pertama kali dimuat (agar tidak menunggu 1 detik)
         updateClock();
     </script>
 </body>

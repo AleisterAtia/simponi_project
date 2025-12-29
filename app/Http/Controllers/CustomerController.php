@@ -81,6 +81,7 @@ class CustomerController extends Controller
     /**
      * Display the specified resource. (Get Customer - AJAX untuk Edit)
      */
+
     public function show($id)
     {
         $customer = Customer::with('user')->findOrFail($id);
@@ -92,6 +93,8 @@ class CustomerController extends Controller
 
         return response()->json($data);
     }
+
+    // Contoh di Controller
 
     /**
      * Update the specified resource in storage. (Update User and Customer - AJAX)

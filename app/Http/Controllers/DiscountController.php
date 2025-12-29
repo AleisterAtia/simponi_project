@@ -50,7 +50,7 @@ class DiscountController extends Controller
 
         return min(100.00, $totalDiscount);
     }
-    
+
     // ===================================================================
     // ⬇️ FUNGSI CRUD ADMIN (FIX UNTUK ERROR RouteNotFound) ⬇️
     // ===================================================================
@@ -62,7 +62,7 @@ class DiscountController extends Controller
     {
         // Ambil semua diskon dan urutkan berdasarkan tipe
         $discounts = Discount::orderBy('tipe_diskon')->paginate(10);
-        
+
         // Mengarahkan ke view yang Anda tentukan
         return view('admin.diskon', compact('discounts'));
     }
@@ -80,7 +80,7 @@ class DiscountController extends Controller
             'tanggal_akhir' => 'nullable|date|after_or_equal:tanggal_mulai',
             'status' => 'required|in:Aktif,Non-Aktif',
         ]);
-        
+
         // Atur tanggal ke NULL jika tipe diskon TETAP atau ULANG_TAHUN
         if ($validated['tipe_diskon'] !== 'SPESIAL') {
             $validated['tanggal_mulai'] = null;
@@ -112,7 +112,7 @@ class DiscountController extends Controller
             $validated['tanggal_mulai'] = null;
             $validated['tanggal_akhir'] = null;
         }
-        
+
         $discount->update($validated);
 
         return redirect()->route('admin.discounts.index')
@@ -126,10 +126,10 @@ class DiscountController extends Controller
     {
         try {
             // Kita cegah penghapusan diskon TETAP atau ULANG_TAHUN (Safety Check)
-            if ($discount->tipe_diskon === 'TETAP' || $discount->tipe_diskon === 'ULANG_TAHUN') {
-                 return back()->with('error', 'Diskon Tetap/Ulang Tahun tidak dapat dihapus, hanya dapat diubah status atau persentasenya.');
-            }
-            
+            // if ($discount->tipe_diskon === 'TETAP' || $discount->tipe_diskon === 'ULANG_TAHUN') {
+            //      return back()->with('error', 'Diskon Tetap/Ulang Tahun tidak dapat dihapus, hanya dapat diubah status atau persentasenya.');
+            // }
+
             $discount->delete();
             return redirect()->route('admin.discounts.index')
                              ->with('success', 'Diskon berhasil dihapus.');

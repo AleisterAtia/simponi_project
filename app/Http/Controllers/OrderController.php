@@ -210,7 +210,7 @@ class OrderController extends Controller
 
             $customer = null;
             $discountPercentage = 0.00;
-            $discountAmount = 0.00;
+        $discountAmount = 0.00;
 
             if (Auth::check()) {
                 $customer = Auth::user()->customer;
@@ -399,37 +399,38 @@ class OrderController extends Controller
     }
 
     public function showInputPage()
-    {
-        // Ambil data menu dan kategori untuk ditampilkan di halaman input
-        $menus = Menu::orderBy('name', 'asc')->get();
-        $categories = Category::all();
+{
+    // 1. Ambil data menu dan kategori
+    $menus = Menu::orderBy('name', 'asc')->get();
+    $categories = Category::all();
 
-        $rewards = collect(); // Default: Collection kosong
-        $isMember = false;
+    // 2. WAJIB TAMBAHKAN INI (Ambil data Topping)
+    $toppings = Topping::all();
 
-        // ⬇️ LOGIKA KONDISIONAL MEMBER DAN REWARD ⬇️
-        if (Auth::check()) {
-            // Asumsi: User memiliki relasi hasOne/hasMany ke Model Customer
-            $customer = Auth::user()->customer;
+    $rewards = collect();
+    $isMember = false;
 
-            // Cek apakah user memiliki data customer DAN berstatus member (is_member = 1)
-            if ($customer && $customer->is_member) {
-                $isMember = true;
-
-                // Ambil data rewards, muat relasi menu (eager loading)
-                $rewards = Reward::get();
-            }
+    // ... (LOGIKA MEMBER & REWARD TETAP SAMA) ...
+    if (Auth::check()) {
+        $customer = Auth::user()->customer;
+        if ($customer && $customer->is_member) {
+            $isMember = true;
+            $rewards = Reward::get();
         }
-        // ⬆️ END LOGIKA KONDISIONAL MEMBER DAN REWARD ⬆️
-
-        // Tampilkan view 'kasir.input' dan kirim datanya
-        return view('kasir.input', [
-            'menus' => $menus,
-            'categories' => $categories,
-            'rewards' => $rewards,     // ⬅️ KIRIM DATA REWARD
-            'isMember' => $isMember,   // ⬅️ KIRIM STATUS MEMBER (FIX ERROR UNDEFINED)
-        ]);
     }
+
+    // Tampilkan view 'kasir.input' dan kirim datanya
+    return view('kasir.input', [
+        'menus' => $menus,
+        'categories' => $categories,
+
+        // 3. JANGAN LUPA MASUKKAN KE SINI
+        'toppings' => $toppings,
+
+        'rewards' => $rewards,
+        'isMember' => $isMember,
+    ]);
+}
 
    public function showPaymentPage(Request $request)
     {
@@ -520,6 +521,9 @@ class OrderController extends Controller
             'items.*.menu_id' => 'required|exists:menus,id',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.price' => 'required|numeric',
+            // Validasi topping (array nullable)
+        'items.*.toppings' => 'nullable|array',
+        'items.*.toppings.*' => 'exists:toppings,id',
             'subtotal' => 'required|numeric|min:0',
             'discount_percentage' => 'required|numeric|min:0',
             'discount_amount' => 'required|numeric|min:0',
@@ -547,6 +551,23 @@ class OrderController extends Controller
 
         DB::beginTransaction();
         try {
+            // 1. LOGIKA PERHITUNGAN KEMBALIAN (TAMBAHAN BARU)
+    // Jika metode cash, ambil input 'uang_diterima'. Jika null, default ke total_price.
+    $uangDiterima = $validated['uang_diterima'] ?? $validated['total_price'];
+
+    // Jika metode bukan cash (misal QRIS), uang diterima PASTI pas (sama dengan total)
+    if ($validated['payment_method'] !== 'cash') {
+        $uangDiterima = $validated['total_price'];
+    }
+
+    // Hitung kembalian secara manual di backend agar akurat
+    $kembalianHitung = $uangDiterima - $validated['total_price'];
+
+    // Pastikan kembalian tidak minus
+    if ($kembalianHitung < 0) {
+        $kembalianHitung = 0;
+    }
+
             $order = Order::create([
                 'user_id' => auth()->id(),
                 'order_code' => 'KSR-' . time() . rand(10, 99),
@@ -560,8 +581,8 @@ class OrderController extends Controller
                 'order_type' => 'offline',
                 'customer_name' => $validated['customer_name'],
                 'customer_phone' => $validated['customer_phone'],
-                'uang_diterima' => $validated['uang_diterima'] ?? $validated['total_price'],
-                'kembalian' => $validated['kembalian'] ?? 0,
+                'uang_diterima' => $uangDiterima,
+        'kembalian' => $kembalianHitung,
                 'table_number' => null,
             ]);
 
@@ -586,12 +607,30 @@ class OrderController extends Controller
                 }
 
                 $subtotal = $item['price'] * $item['quantity'];
-                $order->orderItems()->create([
-                    'menu_id' => $item['menu_id'],
-                    'quantity' => $item['quantity'],
-                    'price' => $item['price'],
-                    'subtotal' => $subtotal,
+                $newOrderItem = $order->orderItems()->create([
+        'menu_id' => $item['menu_id'],
+        'quantity' => $item['quantity'],
+        'price' => $item['price'],
+        'subtotal' => $subtotal,
+    ]);
+                // BARU: SIMPAN TOPPING KE TABEL PIVOT
+            if (isset($item['toppings']) && is_array($item['toppings'])) {
+        foreach ($item['toppings'] as $toppingId) {
+            $topping = Topping::find($toppingId); // Pastikan path Model benar
+
+            if($topping) {
+                DB::table('order_item_toppings')->insert([
+                    // [BUG FIXED] Gunakan ID dari item yang baru dibuat ($newOrderItem->id), BUKAN $order->id
+                    'order_item_id' => $newOrderItem->id,
+
+                    'topping_id' => $toppingId,
+                    'price' => $topping->price,
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ]);
+            }
+        }
+    }
             }
 
             $customer = $order->customer;
@@ -613,6 +652,18 @@ class OrderController extends Controller
                 ->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
+
+    // Di Controller Anda (misal: OrderController atau KasirController)
+// public function createManual()
+// {
+//     $menus = Menu::all();
+//     $categories = Category::all();
+
+//     // TAMBAHAN: Ambil data topping
+//     $toppings = Topping::all();
+
+//     return view('kasir.input', compact('menus', 'categories', 'toppings'));
+// }
 
     private function getOrdersData()
     {

@@ -88,15 +88,15 @@
                         </svg>
                         <span>Login Member</span> </button>
 
-                    <a href="#" {{-- Ganti # dengan route('register') jika ada --}}
-                        class="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center space-x-1.5 transition duration-200">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z">
-                            </path>
-                        </svg>
-                        <span>Daftar Member</span>
-                    </a>
+                    <button type="button" @click="showRegisterInfo = true"
+    class="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center space-x-1.5 transition duration-200">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z">
+        </path>
+    </svg>
+    <span>Daftar Member</span>
+</button>
 
                     {{-- <a href="#"
                         class="text-sm text-gray-600 hover:text-orange-500 transition font-medium">Admin</a> --}}
@@ -274,6 +274,31 @@
     @include('customer.partials._topping_modal')
     @include('customer.partials._login_member_modal')
 
+    <div x-show="showRegisterInfo" 
+     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     x-cloak>
+    
+    <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center" @click.outside="showRegisterInfo = false">
+        <div class="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+        </div>
+        <h3 class="text-xl font-bold text-gray-800 mb-2">Pendaftaran Member</h3>
+        <p class="text-gray-600 mb-6">Silakan datang langsung ke <strong>Kasir</strong> untuk melakukan pendaftaran member dan aktivasi akun Anda.</p>
+        <button @click="showRegisterInfo = false" 
+                class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-xl transition duration-200">
+            Mengerti
+        </button>
+    </div>
+</div>
+
     <script>
         function wayoujiApp() {
             return {
@@ -281,6 +306,7 @@
                 // A. SEMUA PROPERTI ANDA
                 // ===================================
                 loginModalOpen: false,
+                showRegisterInfo: false,
                 openCart: false,
                 checkoutModal: false,
                 confirmationModal: false,
@@ -505,15 +531,36 @@
                         const data = await response.json();
 
                         if (response.ok) {
+                            // 1. Tampilkan Pesan Sukses
                             alert(data.message);
+
+                            // 2. Update Tampilan Poin (Realtime tanpa reload)
                             if (data.new_points !== undefined) {
-                                // Update Alpine state for points display
                                 this.currentPoints = data.new_points;
                             }
-                            // Refresh the page to update the rewards button state
-                            window.location.reload();
+
+                            // 3. PROSES DOWNLOAD PDF (BAGIAN BARU)
+                            // Mengecek apakah backend mengirimkan link PDF
+                            if (data.pdf_url) {
+                                // Cara aman mendownload file:
+                                // Membuat elemen link sementara, klik otomatis, lalu hapus.
+                                const link = document.createElement('a');
+                                link.href = data.pdf_url;
+                                link.target =
+                                    '_blank'; // Opsional: Buka di tab baru jika browser memblokir download langsung
+                                link.download = 'Kupon-Reward.pdf'; // Nama file default
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                            }
+
+                            // 4. (Opsional) Jangan reload halaman langsung
+                            // window.location.reload();
+                            // ALASAN MENGHAPUS RELOAD: Jika halaman direload terlalu cepat,
+                            // proses download PDF bisa terputus/gagal.
+                            // Karena kita pakai AlpineJS, poin sudah terupdate otomatis di langkah no 2.
+
                         } else {
-                            // Error handling for insufficient points or stock
                             alert('Gagal menukar: ' + (data.message || 'Terjadi kesalahan.'));
                         }
                     } catch (error) {

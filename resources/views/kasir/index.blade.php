@@ -67,40 +67,80 @@
         </div>
 
         <div class="lg:col-span-2">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">Pesanan Terbaru</h2>
-            {{--
-                CATATAN:
-                Bagian "Pesanan Terbaru" ini juga perlu data dari controller.
-                Anda bisa menambahkannya di query web.php nanti.
-            --}}
-            <div class="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
-                <ul class="divide-y divide-gray-200">
-                    <li class="p-4 flex justify-between items-center hover:bg-gray-50">
-                        <div>
-                            <p class="font-semibold text-gray-800">#CSH001 <span
-                                    class="text-xs font-medium text-gray-500 ml-2">Manual</span></p>
-                            <p class="text-sm text-gray-600">Walk-in Customer (1x Wayouji Signature Matcha)</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="font-semibold text-gray-800">Rp 10.000</p>
-                            <span class="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Baru</span>
-                        </div>
-                    </li>
-                    <li class="p-4 flex justify-between items-center hover:bg-gray-50">
-                        <div>
-                            <p class="font-semibold text-gray-800">#CSH002 <span
-                                    class="text-xs font-medium text-gray-500 ml-2">Online</span></p>
-                            <p class="text-sm text-gray-600">Fadhil Dzaky (1x Wayouji Signature Matcha)</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="font-semibold text-gray-800">Rp 10.000</p>
-                            <span
-                                class="text-xs font-medium bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Selesai</span>
-                        </div>
-                    </li>
-                </ul>
-            </div>
-        </div>
+    <h2 class="text-xl font-semibold text-gray-800 mb-4">Pesanan Terbaru</h2>
+    
+    <div class="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
+        <ul class="divide-y divide-gray-200">
+            @forelse($recentOrders as $order)
+                <li class="p-4 flex justify-between items-center hover:bg-gray-50 transition">
+                    <div>
+                        {{-- Kode Order & Tipe --}}
+                        <p class="font-semibold text-gray-800">
+                            #{{ $order->order_code }}
+                            <span class="text-xs font-medium px-2 py-0.5 rounded ml-2 
+                                {{ $order->order_type == 'online' ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-600' }}">
+                                {{ ucfirst($order->order_type ?? 'Manual') }}
+                            </span>
+                        </p>
+
+                        {{-- Nama Pelanggan & Detail Item Singkat --}}
+                        <p class="text-sm text-gray-600 mt-1">
+                            <span class="font-medium">{{ $order->customer_name }}</span>
+                            <span class="text-gray-400 mx-1">|</span>
+                            
+                            {{-- Logika Menampilkan Menu Pertama + Sisa Item --}}
+                            @php
+                                $firstItem = $order->orderItems->first();
+                                $otherItemsCount = $order->orderItems->count() - 1;
+                            @endphp
+
+                            @if($firstItem && $firstItem->menu)
+                                {{ $firstItem->menu->name }} (x{{ $firstItem->quantity }})
+                                @if($otherItemsCount > 0)
+                                    <span class="text-xs font-bold text-gray-500">+{{ $otherItemsCount }} lainnya</span>
+                                @endif
+                            @else
+                                <span>Item dihapus</span>
+                            @endif
+                        </p>
+                    </div>
+
+                    <div class="text-right">
+                        {{-- Total Harga --}}
+                        <p class="font-semibold text-gray-800">Rp {{ number_format($order->total_price, 0, ',', '.') }}</p>
+                        
+                        {{-- Badge Status Warna-Warni --}}
+                        @php
+                            $statusColor = match($order->status) {
+                                'pending' => 'bg-blue-100 text-blue-800',
+                                'processing' => 'bg-yellow-100 text-yellow-800',
+                                'done', 'completed' => 'bg-green-100 text-green-800',
+                                'cancelled' => 'bg-red-100 text-red-800',
+                                default => 'bg-gray-100 text-gray-800'
+                            };
+                            
+                            $statusLabel = match($order->status) {
+                                'pending' => 'Baru',
+                                'processing' => 'Diproses',
+                                'done', 'completed' => 'Selesai',
+                                'cancelled' => 'Batal',
+                                default => ucfirst($order->status)
+                            };
+                        @endphp
+
+                        <span class="text-xs font-medium px-2 py-0.5 rounded-full {{ $statusColor }}">
+                            {{ $statusLabel }}
+                        </span>
+                    </div>
+                </li>
+            @empty
+                <li class="p-8 text-center text-gray-500">
+                    Belum ada pesanan hari ini.
+                </li>
+            @endforelse
+        </ul>
+    </div>
+</div>
 
     </div>
 @endsection

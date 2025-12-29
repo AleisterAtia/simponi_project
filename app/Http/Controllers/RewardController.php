@@ -6,6 +6,7 @@ use App\Models\Menu;
 use App\Models\Reward;
 use App\Models\Customer;
 use Illuminate\Http\Request;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -67,61 +68,78 @@ public function store(Request $request)
      */
     public function redeemReward(Request $request, Reward $reward)
     {
-        // 1. CEK AUTENTIKASI DAN STATUS MEMBER
-        if (!Auth::check()) {
-            return response()->json(['message' => 'Anda harus login untuk menukar reward.'], 401);
-        }
+        // 1. Validasi Login & Member
+        if (!Auth::check()) return response()->json(['message' => 'Login diperlukan.'], 401);
 
         $customer = Auth::user()->customer;
-
         if (!$customer || !$customer->is_member) {
-             return response()->json(['message' => 'Akun ini bukan member yang terdaftar.'], 403);
+             return response()->json(['message' => 'Khusus member.'], 403);
         }
 
         DB::beginTransaction();
         try {
-            // 2. CEK POIN CUKUP
+            // 2. Cek Poin & Stok
             if ($customer->points < $reward->points_required) {
-                return response()->json([
-                    'message' => 'Poin Anda tidak mencukupi.',
-                    'current_points' => $customer->points
-                ], 400);
+                return response()->json(['message' => 'Poin kurang.'], 400);
+            }
+            if ($reward->stock <= 0) {
+                 return response()->json(['message' => 'Stok habis.'], 400);
             }
 
-            // 3. (Opsional) Cek Stok Reward
-            if (isset($reward->stock) && $reward->stock <= 0) {
-                 return response()->json(['message' => 'Maaf, stok reward ini sudah habis.'], 400);
-            }
+            // 3. Kurangi Poin & Stok
+            $customer->decrement('points', $reward->points_required);
+            $reward->decrement('stock');
 
-            // 4. KURANGI POIN DAN UPDATE CUSTOMER
-            $customer->points -= $reward->points_required;
-            $customer->save();
-
-            // (Opsional) Kurangi Stok Reward
-            if (isset($reward->stock)) {
-                 $reward->decrement('stock');
-            }
-
-            // 5. CATAT TRANSAKSI REDEMPTION (Menggunakan Model Redemption yang benar)
-            Redemption::create([
-                'customer_id' => $customer->id,
-                'reward_id' => $reward->id,
-                'points_used' => $reward->points_required,
-                'redemption_date' => Carbon::now(), // Diisi sesuai kolom di Model Redemption Anda
+            // 4. Simpan Transaksi (Pakai kolom standar saja)
+            $redemption = Redemption::create([
+                'customer_id'     => $customer->id,
+                'reward_id'       => $reward->id,
+                'points_used'     => $reward->points_required,
+                'redemption_date' => Carbon::now(), // Pastikan kolom ini ada di DB atau pakai created_at
             ]);
 
             DB::commit();
 
+            // 5. Return URL PDF
             return response()->json([
                 'success' => true,
-                'message' => "Selamat! Anda berhasil menukarkan {$reward->name}. Poin Anda sekarang: {$customer->points}",
+                'message' => 'Berhasil! Kupon sedang diunduh.',
                 'new_points' => $customer->points,
+                'pdf_url' => route('rewards.download_coupon', $redemption->id)
             ]);
 
         } catch (\Exception $e) {
             DB::rollback();
-            Log::error('Reward Redemption Error: ' . $e->getMessage());
-            return response()->json(['message' => 'Gagal memproses penukaran reward.'], 500);
+            return response()->json(['message' => 'Gagal memproses: ' . $e->getMessage()], 500);
         }
     }
+
+    public function downloadCoupon(Redemption $redemption)
+{
+    // 1. Validasi Kepemilikan
+    if (Auth::user()->customer->id !== $redemption->customer_id) {
+        abort(403);
+    }
+
+    // 2. Load data Reward & Customer agar namanya bisa diambil
+    $redemption->load(['reward', 'customer']);
+
+    // 3. Generate Kode Unik
+    $couponCode = 'RDM-' . str_pad($redemption->id, 5, '0', STR_PAD_LEFT);
+
+    // 4. PERBAIKAN ZONA WAKTU (TIMEZONE FIX)
+    // Ambil waktu dibuat, lalu ubah ke Asia/Jakarta (WIB)
+    $createdAt = Carbon::parse($redemption->created_at)->setTimezone('Asia/Jakarta');
+
+    // Hitung kadaluarsa (24 jam dari waktu WIB tersebut)
+    $expiresAt = $createdAt->copy()->addHours(24);
+
+    // 5. Generate PDF
+    // Kita kirim variabel $createdAt juga agar tanggal transaksi di bawah ikut berubah
+    $pdf = Pdf::loadView('pdf.coupon', compact('redemption', 'couponCode', 'expiresAt', 'createdAt'));
+    $pdf->setPaper('A5', 'portrait');
+
+    // Nama file saat didownload
+    return $pdf->download('Kupon-'.$couponCode.'.pdf');
+}
 }

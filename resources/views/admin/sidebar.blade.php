@@ -154,7 +154,7 @@
             <span>Reward</span>
         </a>
 
-        <a href="{{ route('admin.customers.index') }}"
+        {{-- <a href="{{ route('admin.customers.index') }}"
             class="flex items-center space-x-3 px-3 py-2.5 rounded-lg transition duration-150 ease-in-out
             {{ $isCustomersActive ? 'bg-white text-orange-600 font-semibold shadow-sm' : 'text-white hover:bg-orange-600' }}">
 
@@ -163,9 +163,9 @@
             </svg>
 
             <span>Manajemen Member</span>
-        </a>
+        </a> --}}
         {{-- Item Pesanan --}}
-        <a href="/admin/orders"
+        {{-- <a href="/admin/orders"
             class="flex items-center space-x-3 px-3 py-2.5 rounded-lg transition duration-150 ease-in-out
             {{ $isOrdersActive ? 'bg-white text-orange-600 font-semibold shadow-sm' : 'text-white hover:bg-orange-600' }}">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -173,9 +173,9 @@
                 <path fill-rule="evenodd"
                     d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 2a1 1 0 000 2h6a1 1 0 100-2H7zm0 4a1 1 0 100 2h6a1 1 0 100-2H7zm0 4a1 1 0 100 2h6a1 1 0 100-2H7z"
                     clip-rule="evenodd" />
-            </svg>
-            <span>Pesanan</span>
-        </a>
+                    <span>Pesanan</span>
+                </svg>
+        </a> --}}
 
         {{-- Item Laporan --}}
         <a href="{{ route('admin.reports') }}"

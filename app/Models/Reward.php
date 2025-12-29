@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 // Menghapus import Menu karena relasi menu() dihapus.
-// use App\Models\Menu; 
+// use App\Models\Menu;
 
 class Reward extends Model
 {
@@ -14,10 +14,9 @@ class Reward extends Model
 
     protected $fillable = [
         'name',
-        // 'menu_id', // DIHILANGKAN: Tidak ada di DB Anda saat ini
+        'menu_id',
         'points_required',
         'stock',
-        // 'description', // DIHILANGKAN: Tidak ada di DB Anda saat ini
     ];
 
     /**
@@ -28,13 +27,13 @@ class Reward extends Model
      * Anda harus memperbaiki View (landingpage.blade.php) untuk tidak mengakses
      * $reward->menu->* karena data menu tidak lagi terhubung.
      */
-    // public function menu()
-    // {
-    //     return $this->belongsTo(Menu::class);
-    // }
-    
+    public function menu()
+    {
+        return $this->belongsTo(Menu::class);
+    }
+
     // Asumsi: Model Redemption sudah ada
-    public function redemptions() 
+    public function redemptions()
     {
         return $this->hasMany(Redemption::class);
     }

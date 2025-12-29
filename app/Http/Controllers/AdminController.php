@@ -15,13 +15,14 @@ class AdminController extends Controller
     $today = Carbon::today();
     $yesterday = Carbon::yesterday();
 
-    // Pendapatan hari ini
-    $totalRevenueToday = Order::where('status', 'done')
+
+    // Pendapatan hari ini (Status: done atau completed)
+    $totalRevenueToday = Order::whereIn('status', ['done', 'complete'])
                             ->whereDate('created_at', $today)
                             ->sum('total_price');
 
-    // Pendapatan kemarin (untuk perbandingan)
-    $totalRevenueYesterday = Order::where('status', 'done')
+    // Pendapatan kemarin (Status: done atau completed)
+    $totalRevenueYesterday = Order::whereIn('status', ['done', 'complete'])
                                 ->whereDate('created_at', $yesterday)
                                 ->sum('total_price');
 
@@ -41,7 +42,7 @@ class AdminController extends Controller
                                   ->whereDate('created_at', $today)
                                   ->count();
 
-    $completedOrdersCount = Order::where('status', 'done')
+    $completedOrdersCount = Order::whereIn('status', ['done', 'complete'])
                                 ->whereDate('created_at', $today)
                                 ->count();
 

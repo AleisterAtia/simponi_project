@@ -101,7 +101,7 @@ Route::middleware(['web', 'auth', IsKasir::class])->group(function () {
         $today = Carbon::today();
 
         // 1. Hitung Pendapatan Harian (dari order yang statusnya 'done' atau 'cancel')
-        $dailyRevenue = Order::whereIn('status', ['done', 'cancel'])
+        $dailyRevenue = Order::whereIn('status', ['done', 'complete'])
                              ->whereDate('created_at', $today)
                              ->sum('total_price');
 
@@ -116,9 +116,15 @@ Route::middleware(['web', 'auth', IsKasir::class])->group(function () {
                                      ->count();
 
         // 4. Hitung Selesai Hari Ini (status 'done' atau 'cancel')
-        $doneOrderCount = Order::whereIn('status', ['done', 'cancel'])
+        $doneOrderCount = Order::whereIn('status', ['done', 'complete'])
                                ->whereDate('created_at', $today)
                                ->count();
+
+        // TAMBAHAN BARU: Ambil 5 Pesanan Terakhir
+    $recentOrders = Order::with(['orderItems.menu']) // Eager load item & menu
+                        ->orderBy('created_at', 'desc') // Urutkan dari yang paling baru
+                        ->take(5) // Ambil hanya 5 data
+                        ->get();
 
         // Kirim semua data ini ke view
         return view('kasir.index', [
@@ -126,6 +132,7 @@ Route::middleware(['web', 'auth', IsKasir::class])->group(function () {
             'newOrderCount'        => $newOrderCount,
             'processingOrderCount' => $processingOrderCount,
             'doneOrderCount'       => $doneOrderCount,
+            'recentOrders' => $recentOrders,
         ]);
 
     })->name('kasir.dashboard');
@@ -167,6 +174,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/redeem-reward/{reward}', [RewardController::class, 'redeemReward'])
         ->name('rewards.redeem');
 
+    Route::get('/redeem/download/{redemption}', [RewardController::class, 'downloadCoupon'])
+        ->name('rewards.download_coupon');
 
     Route::get('/notifications/read-all', function () {
         auth()->user()->unreadNotifications->markAsRead();

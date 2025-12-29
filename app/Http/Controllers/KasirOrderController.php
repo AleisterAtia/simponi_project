@@ -3,9 +3,13 @@
 namespace App\Http\Controllers;
 
 use Exception;
+
 use App\Models\Menu;
 use App\Models\Order;
+use App\Models\Reward;
+use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use App\Events\OrderStatusUpdated;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -13,19 +17,51 @@ use Illuminate\Support\Facades\Log;
 class KasirOrderController extends Controller
 {
 
-    public function createManual()
-    {
-// Ambil semua menu yang tersedia
-        $menus = Menu::where('status', 'tersedia') // Asumsi ada kolom status
-                     ->select('id', 'name', 'price', 'image', 'category_id') // Ambil data yang diperlukan
-                     ->with('category:id,name') // Muat relasi kategori
-                     ->get();
+public function createManual()
+{
+    // 1. DATA UTAMA: MENU & KATEGORI
+    // Saya hapus 'select' spesifik agar kolom 'stock' juga terbawa (penting untuk validasi stok)
+    $menus = Menu::where('status', 'tersedia')
+                ->with('category')
+                ->orderBy('name', 'asc')
+                ->get();
 
-        // Ambil semua kategori yang memiliki menu
-        $categories = $menus->pluck('category')->unique()->filter();
+    // Ambil kategori dari database langsung agar urutannya sesuai ID/Nama
+    $categories = Category::all();
+    // Atau jika ingin hanya kategori yang punya menu saja (seperti kode Yang Mulia sebelumnya):
+    // $categories = $menus->pluck('category')->unique('id')->filter();
 
-        return view('kasir.input', compact('menus', 'categories'));
+    // 2. [WAJIB] DATA TOPPING (Solusi Error Undefined Variable)
+    $toppings = \App\Models\Topping::all();
+
+    // 3. LOGIKA MEMBER & REWARD
+    $rewards = collect(); // Default kosong (koleksi kosong)
+    $isMember = false;
+
+    if (auth()->check()) {
+        // Asumsi: User kasir yang login tidak relevan dengan "member customer",
+        // TAPI jika maksudnya mengecek user yang sedang login:
+        // (Biasanya kasir menginput member_id customer di form, bukan mengambil dari Auth kasir)
+        // Namun saya ikuti logika function showInputPage yang Yang Mulia kirim sebelumnya:
+
+        $user = auth()->user();
+
+        // Cek apakah user ini punya data customer terhubung
+        if ($user->customer && $user->customer->is_member) {
+            $isMember = true;
+            $rewards = Reward::all();
+        }
     }
+
+    // 4. KIRIM SEMUA DATA KE VIEW
+    return view('kasir.input', compact(
+        'menus',
+        'categories',
+        'toppings',   // <-- Ini yang bikin error sebelumnya
+        'rewards',    // <-- Permintaan tambahan
+        'isMember'    // <-- Permintaan tambahan
+    ));
+}
 
     /**
      * [AJAX] Cari menu berdasarkan kode_menu.
@@ -95,6 +131,14 @@ class KasirOrderController extends Controller
     public function index()
     {
         // Ambil pesanan yang masih aktif dan muat relasi itemnya
+
+        $today = Carbon::today();
+        // 1. Hitung Pendapatan Harian (Hanya yang statusnya 'done' atau 'completed')
+        $dailyRevenue = Order::with('orderItems.menu')
+                        ->whereIn('status', ['done', 'complete'])
+                        ->whereDate('created_at', $today)
+                        ->sum('total_price');
+
         // Kita gunakan 'order_items.menu' untuk mengakses nama menu
         $newOrders = Order::with('orderItems.menu')
                           ->where('status', 'new')
@@ -107,11 +151,12 @@ class KasirOrderController extends Controller
                                  ->get();
 
         $readyOrders = Order::with('orderItems.menu')
-                            ->where('status', 'done')
+                            ->whereIn('status', ['done', 'complete'])
                             ->orderBy('created_at', 'asc')
                             ->get();
 
         return view('kasir.online', compact(
+
             'newOrders',
             'processingOrders',
             'readyOrders'
