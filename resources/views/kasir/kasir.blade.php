@@ -38,7 +38,7 @@
 
     @include('kasir.partials.sidebar')
 
-    <div class="flex-1">
+    <div class="flex-1 w-full md:ml-64 transition-all">
 
         <header class="flex justify-between items-center p-4 border-b-2 border-orange-100">
             <div class="text-right">

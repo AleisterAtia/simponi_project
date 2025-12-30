@@ -3,7 +3,7 @@
 @section('title', 'Tambah Menu')
 
 @section('content')
-    <div class="max-w-4xl mx-auto py-6">
+    <div class="max-w-4xl ml-64 mx-auto py-6">
 
         {{-- Header --}}
         <div class="flex items-center justify-between mb-6">

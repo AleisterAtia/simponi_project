@@ -25,7 +25,7 @@
     <div class="flex flex-1">
         @include('admin.sidebar')
 
-        <main class="flex-1 p-6 bg-gray-100">
+        <main class="flex-1 w-full md:ml-64 p-6 bg-gray-100 transition-all">
             @yield('content')
         </main>
     </div>

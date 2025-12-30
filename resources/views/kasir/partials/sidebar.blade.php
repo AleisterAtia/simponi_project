@@ -1,4 +1,4 @@
-<aside class="w-64 min-h-screen bg-orange-500 text-white flex flex-col p-4 shadow-lg">
+<aside class="fixed w-64 min-h-screen bg-orange-500 text-white flex flex-col p-4 shadow-lg">
 
     <div class="flex items-center gap-3 p-3 mb-4">
         <span class="text-4xl">☕</span>

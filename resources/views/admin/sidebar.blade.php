@@ -21,7 +21,7 @@
     $isSettingsActive = request()->is('admin/settings');
 @endphp
 
-<aside x-data="{ open: false }" class="text-white w-64 flex-shrink-0 min-h-screen bg-orange-500 flex flex-col">
+<aside x-data="{ open: false }" class="fixed text-white w-64 flex-shrink-0 min-h-screen bg-orange-500 flex flex-col">
 
     {{-- Bagian Header/Logo --}}
     <div class="flex items-center space-x-3 p-4">

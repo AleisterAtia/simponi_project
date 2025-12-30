@@ -40,7 +40,7 @@
 
     @include('admin.sidebar')
 
-    <main class="flex-1 p-8 bg-gray-100">
+    <main class="flex-1 ml-64 p-8 bg-gray-100">
         <div class="bg-white rounded-xl shadow-lg p-6 mb-8 border border-gray-200">
 
             {{-- HEADER SECTION --}}

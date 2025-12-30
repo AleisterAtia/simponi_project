@@ -264,13 +264,13 @@
                             <p class="text-orange-600 font-bold text-sm">Rp {{ number_format($menu->price, 0, ',', '.') }}
                             </p>
                         </div>
-                        <button @click="addItemToCart({{ $menu->id }})"
+                        {{-- <button @click="addItemToCart({{ $menu->id }})"
                             class="bg-orange-100 text-orange-600 p-2 rounded-full hover:bg-orange-500 hover:text-white transition">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M12 4.5v15m7.5-7.5h-15" />
                             </svg>
-                        </button>
+                        </button> --}}
                     </div>
                 @endforeach
             </div>
