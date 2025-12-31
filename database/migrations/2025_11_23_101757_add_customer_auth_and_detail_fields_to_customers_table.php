@@ -14,15 +14,15 @@ return new class extends Migration
         Schema::table('customers', function (Blueprint $table) {
             // 1. user_id (Relasi ke tabel users untuk autentikasi)
             // Diletakkan setelah 'id'
-             $table->foreignId('user_id')->nullable()->after('id')->constrained()->onDelete('cascade');
+            // $table->foreignId('user_id')->nullable()->after('id')->constrained()->onDelete('cascade');
             
             // 2. email (Diperlukan untuk form input dan konsistensi data)
             // Dibuat unique karena setiap customer memiliki 1 akun login yang unik.
-             $table->string('email')->unique()->nullable()->after('name');
+            // $table->string('email')->unique()->nullable()->after('name');
             
             // 3. birth_date (Tanggal Lahir untuk fitur diskon)
             // Diletakkan setelah 'address'
-            $table->date('birth_date')->nullable()->after('phone');
+            //$table->date('birth_date')->nullable()->after('phone');
         });
     }
 
@@ -33,14 +33,14 @@ return new class extends Migration
     {
          Schema::table('customers', function (Blueprint $table) {
         //     // Hapus foreign key terlebih dahulu
-             $table->dropForeign(['user_id']);
+         //    $table->dropForeign(['user_id']);
             
         //     // Hapus semua kolom yang ditambahkan
-             $table->dropColumn(['user_id', 'email', 'birth_date']);
+           //  $table->dropColumn(['user_id', 'email', 'birth_date']);
          });
         Schema::table('customers', function (Blueprint $table) {
             // Hapus hanya kolom yang ditambahkan di UP() ini
-            $table->dropColumn(['birth_date']); 
+            //$table->dropColumn(['birth_date']); 
         });
     }
 };
